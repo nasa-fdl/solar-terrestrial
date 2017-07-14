@@ -21,27 +21,42 @@ import sys
 def parser(x):
     return datetime.strptime('190'+x, '%Y-%m')
 
+'''
+#Figure out how scaler works.
+
+scaler = MinMaxScaler(feature_range=(-1,1))
+scaler = scaler.fit(train[:,0,0].reshape(-1,1))
+train_scaled = scaler.transform(train[:,0,0].reshape(-1,1))[:,0]
+train_unscaled = scaler.inverse_transform(train_scaled.reshape(-1,1))[:,0]
+
+print train[:10,0,0]
+print train_scaled[:10]
+print train_unscaled[:10]
+
+sys.exit()
+'''
+
 # scale train and test data to [-1, 1]. 
 def scale(train, test):
     # create list of scalers
     scalerlist = list()
-    train_scaled = train
-    test_scaled = test
+    train_scaled = np.zeros(train.shape)
+    test_scaled = np.zeros(test.shape)
     for i in range(train.shape[2]):
         scaler = MinMaxScaler(feature_range=(-1, 1))
-        scaler = scaler.fit(train[:,:,i])
+        scaler = scaler.fit(train[:,0,i].reshape(-1,1))
         train_scaled[:,:,i] = scaler.transform(train[:,:,i])
         test_scaled[:,:,i] = scaler.transform(test[:,:,i])
-        scaler.attr = i
+        #scaler.attr = i
         scalerlist.append(scaler)
     return scalerlist, train_scaled, test_scaled
 
 # inverse scaling for a forecasted value
-def invert_scale(scalerlist, value):#NOT DEBUGGED
-    inverted = value
+def invert_scale(scalerlist, value):
+    inverted = np.zeros(value.shape)
     for i in range(value.shape[2]):
-        inverted[:,:,i] = scalerlist[i].inverse_transform(value.reshape(1,value.shape[0]))
-    return inverted[0]
+        inverted[:,:,i] = scalerlist[i].inverse_transform(value[:,:,i])
+    return inverted
 
 # LSTM is a type of RNN. Does not need window lagged observation (stateful=True)
 # reset_states() clears state of LSTM. Not used in present one-pass learning.
@@ -71,7 +86,7 @@ def forecast_lstm(model, batch_size, X):
 
 # import data
 DIR = '/home/handmer/Documents/FDL/'
-timeseries=pickle.load(open(DIR + 'H_2016_minutes_month.pkl', 'rb'))
+timeseries=pickle.load(open(DIR + 'H_2016_minutes_week.pkl', 'rb'))
 series=np.array(timeseries)
 
 # transform data to be stationary
@@ -87,7 +102,7 @@ supervised_values[:-1,1] = diff_values.T
 train, test = supervised_values[:-int(len(supervised_values)/100)], supervised_values[-int(len(supervised_values)/100):]
 
 # transform the scale of the data
-scaler, train_scaled, test_scaled = scale(train, test)
+scalerlist, train_scaled, test_scaled = scale(train, test)
 
 # fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer"
 lstm_model = fit_lstm(train_scaled, 1, 1, 2)
