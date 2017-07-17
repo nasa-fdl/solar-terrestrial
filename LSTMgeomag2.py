@@ -143,6 +143,8 @@ out=13
 
 pyplot.plot(test_scaled_x,test_scaled[:,0,out])
 pyplot.plot(test_scaled_x,predictions[:,out])
+pyplot.xaxis('time (minutes)')
+pyplot.yaxis('B (nT)')
 pyplot.show()
 
 #pyplot.plot(nrmse)
@@ -151,3 +153,6 @@ pyplot.show()
 # track loss vs records
 # array output/prediction
 # null hypothesis
+
+# check noise in data. Take diff with stencil?
+# improve data saving technique
