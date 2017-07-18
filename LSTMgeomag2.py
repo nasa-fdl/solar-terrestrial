@@ -1,3 +1,5 @@
+# THIS SCRIPT WAS USED FOR WEEK 3 CONCEPTUAL DEMO BUT CONTAINS NUMEROUS 
+# BUGS AND IS NO LONGER MAINTAINED.
 # based on http://machinelearningmastery.com/time-series-forecasting-long-short-term-memory-network-python/
 # load and plot dataset
 from pandas import read_csv
