@@ -12,13 +12,18 @@ from keras.layers import LSTM
 from math import sqrt
 from matplotlib import pyplot
 import numpy as np
-
 import pickle
 import sys
+import ConfigParser
 
-# load dataset
-def parser(x):
-    return datetime.strptime('190'+x, '%Y-%m')
+# Read local config file
+config = ConfigParser.RawConfigParser()
+config.read('myconfig.cfg')
+
+DIR = config.get('LSTMCFG','DIR')
+FILENAME = config.get('LSTMCFG','FILENAME')
+OUTPUT = config.get('LSTMCFG','OUTPUT')
+TIMES = map(int, config.get('LSTMCFG','TIMES').split(','))
 
 # scale train and test data to [-1, 1]. 
 def scale(train, test):
@@ -69,18 +74,17 @@ def forecast_lstm(model, batch_size, X):
     return yhat[0].reshape((yhat.shape[1]/X.shape[2],X.shape[2]))
 
 # import data
-DIR = '/home/chandmer/data/'
-timeseries=pickle.load(open(DIR + 'H_2016_minutes.pkl', 'rb'))
+timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
 series=np.array(timeseries)
 
-# transform data to be stationary
+# transform data to be stationary (take first derivative to remove slow drift)
+# This won't work for a wide class of functions
 diff_values = np.nan_to_num(np.diff(series))
 
 # transform data to be supervised learning
-predict_times=[60*6] #include no time in the future
+predict_times = TIMES
 max_predict=max(predict_times)
 supervised_values = np.zeros((diff_values.shape[1]+max_predict+1,len(predict_times),diff_values.shape[0]))
-#supervised_values[:-max_predict-1,0] = diff_values.T
 for i in range(len(predict_times)):
     supervised_values[predict_times[i]:-max_predict+predict_times[i]-1,i] = diff_values.T
 
@@ -110,7 +114,7 @@ for i in range(len(test_scaled)):
     X, y = test_scaled[i, 0:1], test_scaled[i]
     bestresult[i] = y
     yhat = forecast_lstm(lstm_model, 1, test_scaled[i,0:1])
-    yhatnonML = test_scaled[i-1] #make this better
+    yhatnonML = 2*test_scaled[i-1] - test_scaled[i-2] #two point
     predictions[i] = yhat
     predictionsnonML[i] = yhatnonML
     #think deeply about prediction weighting
@@ -125,7 +129,9 @@ train_scaled_x = np.arange(1,1+train_scaled.shape[0],1)
 test_scaled_x = np.arange(1+train_scaled.shape[0],1+train_scaled.shape[0]+test_scaled.shape[0],1)
 
 #save stuff to files
-
+np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult.reshape(bestresult.shape[0],bestresult.shape[1]*bestresult.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_nonML.csv', predictionsnonML.reshape(predictionsnonML.shape[0],predictionsnonML.shape[1]*predictionsnonML.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_ML.csv', predictions.reshape(predictions.shape[0],predictions.shape[1]*predictions.shape[2]), delimiter=",")
 
 # this measures total relative error over the entire test period for each of the different prediction times and channels.
 for i in range(predictions.shape[2]):
@@ -149,15 +155,14 @@ for i in range(predictions.shape[1]):
     pyplot.plot(test_scaled_x+predict_times[i],predictions[:,i,out])
 pyplot.plot(test_scaled_x,test_scaled[:,0,out])
 pyplot.xlabel('time (minutes)')
-pyplot.ylabel('B (nT, scaled)')
+pyplot.ylabel('dB/dt (nT/s, scaled)')
 pyplot.show()
 
 #pyplot.plot(nrmse)
 #pyplot.show()
 
 # track loss vs records
-# array output/prediction
 # null hypothesis
 
 # check noise in data. Take diff with stencil?
-# improve data saving technique
+
