@@ -69,15 +69,15 @@ def forecast_lstm(model, batch_size, X):
     return yhat[0].reshape((yhat.shape[1]/X.shape[2],X.shape[2]))
 
 # import data
-DIR = '/home/handmer/Documents/FDL/data/'
-timeseries=pickle.load(open(DIR + 'H_2016_minutes_week.pkl', 'rb'))
+DIR = '/home/chandmer/data/'
+timeseries=pickle.load(open(DIR + 'H_2016_minutes.pkl', 'rb'))
 series=np.array(timeseries)
 
 # transform data to be stationary
 diff_values = np.nan_to_num(np.diff(series))
 
 # transform data to be supervised learning
-predict_times=[0,1,2,4,8,16,32] #include no time in the future
+predict_times=[60*6] #include no time in the future
 max_predict=max(predict_times)
 supervised_values = np.zeros((diff_values.shape[1]+max_predict+1,len(predict_times),diff_values.shape[0]))
 #supervised_values[:-max_predict-1,0] = diff_values.T
@@ -131,7 +131,7 @@ test_scaled_x = np.arange(1+train_scaled.shape[0],1+train_scaled.shape[0]+test_s
 for i in range(predictions.shape[2]):
     print i, ['%.2f' % sqrt(np.abs(np.mean((bestresult[:,j,i]-predictions[:,j,i])**2/bestresult[:,j,i]**2))) for j in range(predictions.shape[1])]
 
-out=35
+out=16
 
 # plot raw data
 #pyplot.plot(series[out])
@@ -149,7 +149,7 @@ for i in range(predictions.shape[1]):
     pyplot.plot(test_scaled_x+predict_times[i],predictions[:,i,out])
 pyplot.plot(test_scaled_x,test_scaled[:,0,out])
 pyplot.xlabel('time (minutes)')
-pyplot.ylabel('B (nT)')
+pyplot.ylabel('B (nT, scaled)')
 pyplot.show()
 
 #pyplot.plot(nrmse)
