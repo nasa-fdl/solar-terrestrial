@@ -151,9 +151,9 @@ out=16
 
 
 # plot predictions over test region #fix x axis
+pyplot.plot(test_scaled_x,test_scaled[:,0,out])
 for i in range(predictions.shape[1]):
     pyplot.plot(test_scaled_x+predict_times[i],predictions[:,i,out])
-pyplot.plot(test_scaled_x,test_scaled[:,0,out])
 pyplot.xlabel('time (minutes)')
 pyplot.ylabel('dB/dt (nT/s, scaled)')
 pyplot.show()
