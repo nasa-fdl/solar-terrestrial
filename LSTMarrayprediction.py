@@ -15,6 +15,7 @@ import numpy as np
 import pickle
 import sys
 import ConfigParser
+import copy
 
 # Read local config file
 config = ConfigParser.RawConfigParser()
@@ -73,20 +74,41 @@ def forecast_lstm(model, batch_size, X):
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0].reshape((yhat.shape[1]/X.shape[2],X.shape[2]))
 
+# scrub outliers
+def reject_outliers(data):
+    m = 4
+    u = np.mean(data)
+    s = np.std(data)
+    filtered = [e if (u - m*s < e < u + m*s) else float('nan') for e in data]
+    return filtered
+
 # import data
 timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
 series=np.array(timeseries)
 
-# transform data to be stationary (take first derivative to remove slow drift)
-# This won't work for a wide class of functions
-diff_values = np.nan_to_num(np.diff(series))
+# New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. No diff anymore.
+
+# replace outliers (faulty data) with nans
+series_no_outliers = [reject_outliers(x) for x in series]
+
+# locate nans
+nans_where = [np.argwhere(np.isnan(x))[:,0] for x in series_no_outliers]
+
+# replace nans with mean, creates riffled array with a 0-1 nan-replacement flag to tell LSTM that the data is flat.
+series_no_nans = np.zeros((2*series.shape[0],series.shape[1]))
+series_no_nans[::2] = series
+for i in range(len(series)):
+    series_mean = np.nanmean(series[i])
+    for j in nans_where[i]:
+        series_no_nans[2*i,j] = series_mean
+        series_no_nans[2*i+1,j] = 1.
 
 # transform data to be supervised learning
 predict_times = TIMES
 max_predict=max(predict_times)
-supervised_values = np.zeros((diff_values.shape[1]+max_predict+1,len(predict_times),diff_values.shape[0]))
+supervised_values = np.zeros((series_no_nans.shape[1]+max_predict+1,len(predict_times),series_no_nans.shape[0]))
 for i in range(len(predict_times)):
-    supervised_values[predict_times[i]:-max_predict+predict_times[i]-1,i] = diff_values.T
+    supervised_values[predict_times[i]:-max_predict+predict_times[i]-1,i] = series_no_nans.T
 
 # split data into train and test-sets
 #test_length = 10
@@ -107,65 +129,32 @@ lstm_model.predict(train_reshaped, batch_size=1)
 # walk-forward validation on the remaining test data
 bestresult = np.zeros(test_scaled.shape)
 predictions = np.zeros(test_scaled.shape)
-predictionsnonML = np.zeros(test_scaled.shape)
+#predictionsnonML = np.zeros(test_scaled.shape)
 nrmse=np.zeros(test.shape[0])
 nrmsenonML=np.zeros(test.shape[0])
 np.set_printoptions(precision=2) 
 for i in range(len(test_scaled)):
-    # make one-step forecast
     X, y = test_scaled[i, 0:1], test_scaled[i]
     bestresult[i] = y
     yhat = forecast_lstm(lstm_model, 1, test_scaled[i,0:1])
-    yhatnonML = 2*test_scaled[i-1] - test_scaled[i-2] #two point - split this into a new function
     predictions[i] = yhat
-    predictionsnonML[i] = yhatnonML
-    #think deeply about prediction weighting
-    nrmse[i] = sqrt(np.abs(np.mean((y-yhat)**2/y**2)))
-    nrmsenonML[i] = sqrt(np.abs(np.mean((y-yhatnonML)**2/y**2)))
-    print i, nrmse[i], nrmsenonML[i]
+    # weighting prediction by advanced time squared. This is roughly consistent with 2nd order extrapolation methods, but can easily be tweaked.
+    nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/y[i]**2))) for i in range(len(TIMES))]))
+    print i, nrmse[i]
 
 print np.mean(nrmse)
 
 # Invert scaling
 bestresult_unscale = invert_scale(scalerlist,bestresult)
 predictions_unscale = invert_scale(scalerlist,predictions)
-predictionsnonML_unscale = invert_scale(scalerlist,predictionsnonML)
-
-# Unwind np.diff using np.cumsum
-bestresult_int = np.insert(np.cumsum(bestresult_unscale, axis=0),0,0.,axis=0)
-predictions_int = np.insert(np.cumsum(predictions_unscale, axis=0),0,0.,axis=0)
-predictionsnonML_int = np.insert(np.cumsum(predictionsnonML_unscale, axis=0),0,0.,axis=0)
-
-# Compute offset
-offset = series[:,len(train)]
-
-# Compare to original dataset
-#print 'follow the shrink-unshrink procedure'
-#print np.diff(series[0,len(train):len(train)+test_length])
-#print test[:,0,0]
-#print test_scaled[:,0,0]
-#print bestresult[:,0,0]
-#print bestresult_unscale[:,0,0]
-#print np.diff(bestresult_int[:,0,0])
-
-# Add offset to cumulative sums
-bestresult_int += offset
-predictions_int += offset
-predictionsnonML_int += offset
-
-# Check that data re-inflation is the additive identity
-#print bestresult_int[:,0,1]
-#print series[1,len(train):len(train)+test_length]
-#print bestresult_int[:-3,0,1]-series[1,len(train):len(train)+test_length]
 
 #Define the x coordinates for plotting
 train_scaled_x = np.arange(1,1+train_scaled.shape[0],1)
 test_scaled_x = np.arange(1+train_scaled.shape[0],1+train_scaled.shape[0]+test_scaled.shape[0],1)
 
 #save stuff to files
-np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult_int.reshape(bestresult_int.shape[0],bestresult_int.shape[1]*bestresult_int.shape[2]), delimiter=",")
-np.savetxt(DIR+OUTPUT+'_nonML.csv', predictionsnonML_int.reshape(predictionsnonML_int.shape[0],predictionsnonML_int.shape[1]*predictionsnonML_int.shape[2]), delimiter=",")
-np.savetxt(DIR+OUTPUT+'_ML.csv', predictions_int.reshape(predictions_int.shape[0],predictions_int.shape[1]*predictions_int.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult_unscale.reshape(bestresult_unscale.shape[0],bestresult_unscale.shape[1]*bestresult_unscale.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_ML.csv', predictions_unscale.reshape(predictions_unscale.shape[0],predictions_unscale.shape[1]*predictions_unscale.shape[2]), delimiter=",")
 
 # this measures total relative error over the entire test period for each of the different prediction times and channels.
 for i in range(predictions.shape[2]):
@@ -183,20 +172,16 @@ out=16
 #pyplot.plot(test_scaled_x,predictions[:,out])
 #pyplot.show()
 
-
 # plot predictions over test region #fix x axis
 pyplot.plot(test_scaled_x,test_scaled[:,0,out])
-for i in range(predictions.shape[1]):
-    pyplot.plot(test_scaled_x+predict_times[i],predictions[:,i,out])
+for i in range(predictions_unscale.shape[1]):
+    pyplot.plot(test_scaled_x+predict_times[i],predictions_unscale[:,i,out])
 pyplot.xlabel('time (minutes)')
-pyplot.ylabel('dB/dt (nT/s, scaled)')
+pyplot.ylabel('B (nT)')
 pyplot.show()
 
 #pyplot.plot(nrmse)
 #pyplot.show()
 
 # track loss vs records
-# null hypothesis
-
-# check noise in data. Take diff with stencil?
 
