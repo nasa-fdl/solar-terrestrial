@@ -67,7 +67,7 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
         #model.reset_states()
     return model
 
-# make a one-step forecast ##Upgrade this to 60 step forecasts
+# perform forecasts
 def forecast_lstm(model, batch_size, X):
     X = X.reshape(X.shape[0], 1, X.shape[1])
     yhat = model.predict(X, batch_size=batch_size)
@@ -89,8 +89,10 @@ for i in range(len(predict_times)):
     supervised_values[predict_times[i]:-max_predict+predict_times[i]-1,i] = diff_values.T
 
 # split data into train and test-sets
-#train, test = supervised_values[:100], supervised_values[100:110]
-train, test = supervised_values[:-int(len(supervised_values)/100)], supervised_values[-int(len(supervised_values)/100):]
+#test_length = 10
+#train, test = supervised_values[:100], supervised_values[100:100+test_length]
+test_length = int(len(supervised_values)/100)
+train, test = supervised_values[:-test_length], supervised_values[-test_length:]
 
 # transform the scale of the data
 scalerlist, train_scaled, test_scaled = scale(train, test)
@@ -114,7 +116,7 @@ for i in range(len(test_scaled)):
     X, y = test_scaled[i, 0:1], test_scaled[i]
     bestresult[i] = y
     yhat = forecast_lstm(lstm_model, 1, test_scaled[i,0:1])
-    yhatnonML = 2*test_scaled[i-1] - test_scaled[i-2] #two point
+    yhatnonML = 2*test_scaled[i-1] - test_scaled[i-2] #two point - split this into a new function
     predictions[i] = yhat
     predictionsnonML[i] = yhatnonML
     #think deeply about prediction weighting
@@ -124,14 +126,46 @@ for i in range(len(test_scaled)):
 
 print np.mean(nrmse)
 
+# Invert scaling
+bestresult_unscale = invert_scale(scalerlist,bestresult)
+predictions_unscale = invert_scale(scalerlist,predictions)
+predictionsnonML_unscale = invert_scale(scalerlist,predictionsnonML)
+
+# Unwind np.diff using np.cumsum
+bestresult_int = np.insert(np.cumsum(bestresult_unscale, axis=0),0,0.,axis=0)
+predictions_int = np.insert(np.cumsum(predictions_unscale, axis=0),0,0.,axis=0)
+predictionsnonML_int = np.insert(np.cumsum(predictionsnonML_unscale, axis=0),0,0.,axis=0)
+
+# Compute offset
+offset = series[:,len(train)]
+
+# Compare to original dataset
+#print 'follow the shrink-unshrink procedure'
+#print np.diff(series[0,len(train):len(train)+test_length])
+#print test[:,0,0]
+#print test_scaled[:,0,0]
+#print bestresult[:,0,0]
+#print bestresult_unscale[:,0,0]
+#print np.diff(bestresult_int[:,0,0])
+
+# Add offset to cumulative sums
+bestresult_int += offset
+predictions_int += offset
+predictionsnonML_int += offset
+
+# Check that data re-inflation is the additive identity
+#print bestresult_int[:,0,1]
+#print series[1,len(train):len(train)+test_length]
+#print bestresult_int[:-3,0,1]-series[1,len(train):len(train)+test_length]
+
 #Define the x coordinates for plotting
 train_scaled_x = np.arange(1,1+train_scaled.shape[0],1)
 test_scaled_x = np.arange(1+train_scaled.shape[0],1+train_scaled.shape[0]+test_scaled.shape[0],1)
 
 #save stuff to files
-np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult.reshape(bestresult.shape[0],bestresult.shape[1]*bestresult.shape[2]), delimiter=",")
-np.savetxt(DIR+OUTPUT+'_nonML.csv', predictionsnonML.reshape(predictionsnonML.shape[0],predictionsnonML.shape[1]*predictionsnonML.shape[2]), delimiter=",")
-np.savetxt(DIR+OUTPUT+'_ML.csv', predictions.reshape(predictions.shape[0],predictions.shape[1]*predictions.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult_int.reshape(bestresult_int.shape[0],bestresult_int.shape[1]*bestresult_int.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_nonML.csv', predictionsnonML_int.reshape(predictionsnonML_int.shape[0],predictionsnonML_int.shape[1]*predictionsnonML_int.shape[2]), delimiter=",")
+np.savetxt(DIR+OUTPUT+'_ML.csv', predictions_int.reshape(predictions_int.shape[0],predictions_int.shape[1]*predictions_int.shape[2]), delimiter=",")
 
 # this measures total relative error over the entire test period for each of the different prediction times and channels.
 for i in range(predictions.shape[2]):
