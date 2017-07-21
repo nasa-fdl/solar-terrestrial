@@ -32,7 +32,7 @@ def scale(train, test):
     scalerlist = list()
     train_scaled = np.zeros(train.shape)
     test_scaled = np.zeros(test.shape)
-    for i in range(train.shape[2]):
+    for i in range(0,train.shape[2],2):#Don't operate on nan flag
         scaler = MinMaxScaler(feature_range=(-1, 1))
         scaler = scaler.fit(train[:,0,i].reshape(-1,1))
         train_scaled[:,:,i] = scaler.transform(train[:,:,i])
@@ -44,8 +44,8 @@ def scale(train, test):
 # inverse scaling for a forecasted value
 def invert_scale(scalerlist, value):
     inverted = np.zeros(value.shape)
-    for i in range(value.shape[2]):
-        inverted[:,:,i] = scalerlist[i].inverse_transform(value[:,:,i])
+    for i in range(0,value.shape[2],2):
+        inverted[:,:,i] = scalerlist[i/2].inverse_transform(value[:,:,i])
     return inverted
 
 # LSTM is a type of RNN. Does not need window lagged observation (stateful=True)
@@ -57,10 +57,10 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
     # create and compile the network
     model = Sequential() 
     # on short trainings, a huge model doesn't seem to do much good.
-    model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
-    #model.add(LSTM(neurons*X.shape[2], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=False, return_sequences=True))
-    #model.add(LSTM(2*neurons*X.shape[2], stateful=True, return_sequences=True))
-    #model.add(LSTM(neurons*X.shape[2], stateful=False))
+    #model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
+    model.add(LSTM(neurons*X.shape[2], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=False, return_sequences=True))
+    model.add(LSTM(2*neurons*X.shape[2], stateful=True, return_sequences=True))
+    model.add(LSTM(neurons*X.shape[2], stateful=True))
     model.add(Dense(y.shape[1]))
     model.compile(loss='mean_squared_error', optimizer='adam')
     for i in range(nb_epoch):
@@ -76,9 +76,9 @@ def forecast_lstm(model, batch_size, X):
 
 # scrub outliers
 def reject_outliers(data):
-    m = 4
-    u = np.mean(data)
-    s = np.std(data)
+    m = 10
+    u = np.nanmean(data)
+    s = np.nanstd(data)
     filtered = [e if (u - m*s < e < u + m*s) else float('nan') for e in data]
     return filtered
 
