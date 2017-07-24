@@ -94,10 +94,11 @@ for i in range(epochs):
     model.reset_states()
 
 print('Predicting')
-predicted_output = model.predict(cos, batch_size=batch_size)
+#Invert and shrink the test set!
+predicted_output = model.predict(-0.5*cos, batch_size=batch_size)
 
 print('Plotting Results')
-plt.plot(expected_output)
+plt.plot(-0.5*expected_output)
 plt.plot(predicted_output)
 plt.title('Expected and Predicted\ntsteps = '+str(tsteps)+', batch_size = '+str(batch_size)+', epochs = '+str(epochs)+'\nneurons = '+str(neurons)+', layers = '+str(layers)+', length = '+str(length)+', period = '+str(period))
 plt.show()
