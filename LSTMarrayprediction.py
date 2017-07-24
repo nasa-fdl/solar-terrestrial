@@ -51,16 +51,13 @@ def invert_scale(scalerlist, value):
 # LSTM is a type of RNN. Does not need window lagged observation (stateful=True)
 # reset_states() clears state of LSTM. Not used in present one-pass learning.
 # Takes input in matrix with dimensions [samples, time steps, features]
-
+# Based on hyperparameter study, efficiency and accuracy is maximized with more neurons, fewer layers, more epochs, bigger batch size.
 def fit_lstm(train, batch_size, nb_epoch, neurons):
     X, y = train[:, 0:1], train.reshape(train.shape[0],train.shape[1]*train.shape[2])
     # create and compile the network
     model = Sequential() 
     # on short trainings, a huge model doesn't seem to do much good.
-    #model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))
-    model.add(LSTM(neurons*X.shape[2], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=False, return_sequences=True))
-    model.add(LSTM(2*neurons*X.shape[2], stateful=True, return_sequences=True))
-    model.add(LSTM(neurons*X.shape[2], stateful=True))
+    model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))#return sequences = False by default
     model.add(Dense(y.shape[1]))
     model.compile(loss='mean_squared_error', optimizer='adam')
     for i in range(nb_epoch):
@@ -119,8 +116,8 @@ train, test = supervised_values[:-test_length], supervised_values[-test_length:]
 # transform the scale of the data
 scalerlist, train_scaled, test_scaled = scale(train, test)
 
-# fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer"
-lstm_model = fit_lstm(train_scaled, 1, 1, 2)
+# fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer", bigger batch size to run faster
+lstm_model = fit_lstm(train_scaled, 100, 1, 2)
 
 # forecast (nearly) the entire training dataset to build up state for forecasting
 train_reshaped = train_scaled[:, 0].reshape(train_scaled.shape[0], 1, train_scaled.shape[2])
