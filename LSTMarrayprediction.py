@@ -110,14 +110,16 @@ for i in range(len(predict_times)):
 # split data into train and test-sets
 #test_length = 10
 #train, test = supervised_values[:100], supervised_values[100:100+test_length]
-test_length = int(len(supervised_values)/100)
-train, test = supervised_values[:-test_length], supervised_values[-test_length:]
+#test_length = int(len(supervised_values)/100)
+test_length = 320000
+train_length = 200000
+train, test = supervised_values[:train_length], supervised_values[train_length:test_length]
 
 # transform the scale of the data
 scalerlist, train_scaled, test_scaled = scale(train, test)
 
 # fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer", bigger batch size to run faster
-lstm_model = fit_lstm(train_scaled, 100, 1, 2)
+lstm_model = fit_lstm(train_scaled, 1, 1, 2)
 
 # forecast (nearly) the entire training dataset to build up state for forecasting
 train_reshaped = train_scaled[:, 0].reshape(train_scaled.shape[0], 1, train_scaled.shape[2])
