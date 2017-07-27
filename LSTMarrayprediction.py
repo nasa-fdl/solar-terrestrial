@@ -29,6 +29,7 @@ BATCH = int(config.get('LSTMCFG','BATCH'))
 EPOCH = int(config.get('LSTMCFG','EPOCH'))
 TEST_LENGTH = int(config.get('LSTMCFG','TEST_LENGTH'))
 TRAIN_LENGTH = int(config.get('LSTMCFG','TRAIN_LENGTH'))
+NEURONS = int(config.get('LSTMCFG','NEURONS'))
 
 # scale train and test data to [-1, 1]. 
 def scale(train, test):
@@ -73,6 +74,7 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
 
 # perform forecasts
 def forecast_lstm(model, batch_size, X):
+    #X = np.array([X,X,X,X,X,X,X,X,X,X])
     X = X.reshape(X.shape[0], 1, X.shape[1])
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0].reshape((yhat.shape[1]/X.shape[2],X.shape[2]))
@@ -136,12 +138,20 @@ train, test = supervised_values[:train_length], supervised_values[train_length:t
 scalerlist, train_scaled, test_scaled = scale(train, test)
 
 # fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer", bigger batch size to run faster
-lstm_model = fit_lstm(train_scaled, BATCH, EPOCH, 2)
+lstm_model = fit_lstm(train_scaled, BATCH, EPOCH, NEURONS)
+
+# recover trained weights, generate new lstm with single batch input.
+# matching batch size
+# http://machinelearningmastery.com/use-different-batch-sizes-training-predicting-python-keras/
+new_model = Sequential()
+new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), stateful=True))#return sequences = False by default
+new_model.add(Dense(train_scaled.shape[1]*train_scaled.shape[2]))
+new_model.set_weights(lstm_model.get_weights())
+new_model.compile(loss='mean_squared_error',optimizer='adam')
 
 # forecast (nearly) the entire training dataset to build up state for forecasting
 train_reshaped = train_scaled[:, 0].reshape(train_scaled.shape[0], 1, train_scaled.shape[2])
-#lstm_model.predict(train_reshaped, batch_size=1)
-lstm_model.predict(train_reshaped, BATCH)
+new_model.predict(train_reshaped, batch_size=1)
 
 # walk-forward validation on the remaining test data
 bestresult = np.zeros(test_scaled.shape)
@@ -153,7 +163,7 @@ np.set_printoptions(precision=2)
 for i in range(len(test_scaled)):
     X, y = test_scaled[i, 0:1], test_scaled[i]
     bestresult[i] = y
-    yhat = forecast_lstm(lstm_model, BATCH, X)#test_scaled[i,0:1])
+    yhat = forecast_lstm(new_model, 1, X)#test_scaled[i,0:1])
     predictions[i] = yhat
     # weighting prediction by advanced time squared. This is roughly consistent with 2nd order extrapolation methods, but can easily be tweaked.
     nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/y[i]**2))) for i in range(len(TIMES))]))
@@ -162,28 +172,26 @@ for i in range(len(test_scaled)):
 print np.mean(nrmse)
 
 # Invert scaling
-bestresult_unscale = invert_scale(scalerlist,bestresult)
-predictions_unscale = invert_scale(scalerlist,predictions)
+bestresult_unscale = np.insert(invert_scale(scalerlist,bestresult),0,0.,axis=0)
+predictions_unscale = np.insert(invert_scale(scalerlist,predictions),0,0.,axis=0)
 
 # invert diff # That was painful. Let's not do that again, again.
-best_result_int = np.insert(np.cumsum(bestresult_unscale,axis=0),0,0.,axis=0)
-predictions_int = np.insert(np.cumsum(predictions_unscale,axis=0),0,0.,axis=0)
-best_result_int += series_no_nans[:,train_length-1]
+bestresult_int = np.cumsum(bestresult_unscale,axis=0)
+predictions_int = np.cumsum(predictions_unscale,axis=0)
+bestresult_int += series_no_nans[:,train_length-1]
 predictions_int += series_no_nans[:,train_length-1]
 
 #Define the x coordinates for plotting
 train_scaled_x = np.arange(1,1+train_scaled.shape[0],1)
 test_scaled_x = np.arange(train_scaled.shape[0],1+train_scaled.shape[0]+test_scaled.shape[0],1)
 
-#save stuff to files
+#save stuff to files #update this!
 np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult_unscale.reshape(bestresult_unscale.shape[0],bestresult_unscale.shape[1]*bestresult_unscale.shape[2]), delimiter=",")
 np.savetxt(DIR+OUTPUT+'_ML.csv', predictions_unscale.reshape(predictions_unscale.shape[0],predictions_unscale.shape[1]*predictions_unscale.shape[2]), delimiter=",")
 
 # this measures total relative error over the entire test period for each of the different prediction times and channels.
 #for i in range(predictions.shape[2]):
 #    print i, ['%.2f' % sqrt(np.abs(np.mean((bestresult[:,j,i]-predictions[:,j,i#])**2/bestresult[:,j,i]**2))) for j in range(predictions.shape[1])]
-
-#out=0
 
 # plot raw data
 #pyplot.plot(series[out])
@@ -195,10 +203,18 @@ np.savetxt(DIR+OUTPUT+'_ML.csv', predictions_unscale.reshape(predictions_unscale
 #pyplot.plot(test_scaled_x,predictions[:,out])
 #pyplot.show()
 
-# plot predictions over test region #fix x axis
-for out in range(4):
-    pyplot.plot(test_scaled_x,best_result_int[:,0,out])
-    pyplot.plot(test_scaled_x,series_no_nans[out,train_length-1:train_length+test_length])
+# plot un integrated data
+for out in range(2):
+    pyplot.plot(test_scaled_x,bestresult_unscale[:,0,out])
+    for i in range(predictions_unscale.shape[1]):
+        pyplot.plot(test_scaled_x+predict_times[i],predictions_unscale[:,i,out])
+    pyplot.xlabel('time (minutes)')
+    pyplot.ylabel('B (nT)')
+    pyplot.show()
+    # plot predictions over test region 
+    # There's a drift due to some random vertical offset.
+    pyplot.plot(test_scaled_x,bestresult_int[:,0,out])
+    #pyplot.plot(test_scaled_x,series_no_nans[out,train_length-1:train_length+test_length])
     for i in range(predictions_unscale.shape[1]):
         pyplot.plot(test_scaled_x+predict_times[i],predictions_int[:,i,out])
     pyplot.xlabel('time (minutes)')
