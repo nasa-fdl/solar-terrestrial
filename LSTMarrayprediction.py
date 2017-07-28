@@ -90,31 +90,31 @@ def reject_outliers(data):
 
 # import data
 timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
-series=np.array(timeseries)
+geoseries=np.array(timeseries)
 
 # temp hack to import pkl
 SWdata = pickle.load(open(DIR + FILENAME2, 'rb'))
 
-speeds = np.array([float(i) for i in SWdata[26][1:]])
-speeds[np.where(speeds==99999.9)] = np.nan
+series=np.zeros((len(geoseries)+len(SWdata)-18,len(np.array(SWdata[0]))-1))
+print series.shape
+for i in range(len(geoseries)):
+    series[i] = geoseries[i]
+for i in range(len(SWdata)-18):
+    series[len(geoseries)+i] = np.array([float(j) for j in SWdata[i+18][1:]])
+    series[len(geoseries)+i][np.where(series[len(geoseries)+i]==99999.9)] = np.nan
+    
+#BOU BRW BSL CMO DED FRD FRN GUA HON NEW SHU SIT SJG TUC
+#Year Day Hour Minute
+# Field magnitude average nT, BX nT
+# (GSE, GSM)  BY, nT (GSE)  BZ, nT (GSE)  BY, nT (GSM)  BZ, nT (GSM) 
+# RMS SD B scalar, nT  RMS SD field vector, nT  
+# Speed, km/s  Vx Velocity,km/s  Vy Velocity, km/s  Vz Velocity, km/s
+# Proton Density, n/cc  Temperature, K  Flow pressure, nPa  Electric field, mV/m
+# Total Plasma beta  Alfven mach number  Magnetosonic Mach number
+# S/C Xgse Re  S/C Ygse Re  S/c Zgse Re  BSN location Xgse Re  BSN location Ygse Re  BSN location Zgse Re
+# AE-index, nT  AL-index, nT  AU-index, nT  PCN-index
 
-plt.plot(np.arange(0,len(speeds)),speeds,'b')
-plt.xlabel('Time (min)')
-plt.ylabel('Speed (km/s)')
-plt.show()
-
-SWseries=np.zeros((len(SWdata),len(np.array(SWdata[0]))))
-print SWseries.shape
-for i in range(len(SWdata)):
-    SWseries[i] = np.array([float(j) for j in SWdata[i][1:]])
-    SWseries[i][np.where(SWseries[i]==99999.9)] = np.nan
-
-print SWseries[:,:10]
-
-sys.exit()
-
-# New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. No diff anymore.
-
+# New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. 
 # replace outliers (faulty data) with nans
 series_no_outliers = [reject_outliers(x) for x in series]
 
