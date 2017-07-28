@@ -94,14 +94,20 @@ series=np.array(timeseries)
 
 # temp hack to import pkl
 SWdata = pickle.load(open(DIR + FILENAME2, 'rb'))
-np.savetxt(DIR+OUTPUT+'_SWdump.csv', SWdata, delimiter=",")
 
-sys.exit()
+speeds = np.array([float(i) for i in SWdata[26][1:]])
+speeds[np.where(speeds==99999.9)] = np.nan
+
+plt.plot(np.arange(0,len(speeds)),speeds,'b')
+plt.xlabel('Time (min)')
+plt.ylabel('Speed (km/s)')
+plt.show()
 
 SWseries=np.zeros((len(SWdata),len(np.array(SWdata[0]))))
 print SWseries.shape
 for i in range(len(SWdata)):
-    SWseries[i] = np.chararray(SWdata[i])
+    SWseries[i] = np.array([float(j) for j in SWdata[i][1:]])
+    SWseries[i][np.where(SWseries[i]==99999.9)] = np.nan
 
 print SWseries[:,:10]
 
