@@ -23,6 +23,7 @@ config.read('myconfig.cfg')
 
 DIR = config.get('LSTMCFG','DIR')
 FILENAME = config.get('LSTMCFG','FILENAME')
+FILENAME2 = config.get('LSTMCFG','FILENAME2')
 OUTPUT = config.get('LSTMCFG','OUTPUT')
 TIMES = map(int, config.get('LSTMCFG','TIMES').split(','))
 BATCH = int(config.get('LSTMCFG','BATCH'))
@@ -90,6 +91,21 @@ def reject_outliers(data):
 # import data
 timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
 series=np.array(timeseries)
+
+# temp hack to import pkl
+SWdata = pickle.load(open(DIR + FILENAME2, 'rb'))
+np.savetxt(DIR+OUTPUT+'_SWdump.csv', SWdata, delimiter=",")
+
+sys.exit()
+
+SWseries=np.zeros((len(SWdata),len(np.array(SWdata[0]))))
+print SWseries.shape
+for i in range(len(SWdata)):
+    SWseries[i] = np.chararray(SWdata[i])
+
+print SWseries[:,:10]
+
+sys.exit()
 
 # New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. No diff anymore.
 
