@@ -5,12 +5,7 @@
 
 # In[209]:
 
-colstrings = []
-comp.__dict__['stats']['station']+'_'+comp.__dict__['stats']['channel']
-strs = ["" for x in range(ncomps*n_observatories)]
-for c in range(len(colnames)):
-    strs[c] = colnames[c]
-strs
+
 
 
 # In[210]:
@@ -202,7 +197,6 @@ df.columns
 # In[230]:
 
 times    = df.loc[:,'Date']
-
 raw_data = df.loc[:,['Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, nT (GSE,GSM)',
        'Bz, nT (GSE)', 'By, nT (GSM)', 'Bz, nT (GSM)', 'RMS SD B scalar, nT',
        'RMS SD field vector, nT', 'Flow speed, km/s', 'Vx, km/s, GSE',
