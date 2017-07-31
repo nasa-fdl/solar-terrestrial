@@ -3,12 +3,17 @@
 
 # colnames
 
-# In[103]:
+# In[209]:
 
-colnames
+colstrings = []
+comp.__dict__['stats']['station']+'_'+comp.__dict__['stats']['channel']
+strs = ["" for x in range(ncomps*n_observatories)]
+for c in range(len(colnames)):
+    strs[c] = colnames[c]
+strs
 
 
-# In[136]:
+# In[210]:
 
 from obspy.core import UTCDateTime
 
@@ -36,10 +41,10 @@ comp=compseries[0]
 times = comp.times()
 numrows = len(t)
 n_observatories = len(compseries)
-colnames = np.chararray(ncomps*n_observatories,itemsize=5)
+colnames = ["" for x in range(ncomps*n_observatories)]
 
 # Make UTC timestamps
-UTCtimes = np.zeros(numrows, dtype=float)#type(UTCDateTime(comp.__dict__['stats']['starttime'])))
+UTCtimes = np.zeros(numrows, dtype=float)
 for c in range(numrows):
     UTCtimes[c] = (UTCDateTime(comp.__dict__['stats']['starttime']) + times[c]).timestamp
 
@@ -58,12 +63,12 @@ geomagdf = pd.DataFrame(geo, columns=colnames)
 geomagdf.insert(0, 'Date', pd.Series(np.array(UTCtimes)))
 
 
-# In[137]:
+# In[211]:
 
 geomagdf
 
 
-# In[138]:
+# In[212]:
 
 ##################################################################
 ###                  READING OMNI DATA 
@@ -78,14 +83,14 @@ omnirows = ['Year', 'Day', 'Hour', 'Minute', 'Field magnitude average nT', 'BX n
             'AU-index, nT', 'PCN-index']
 
 
-# In[139]:
+# In[213]:
 
 #dff = pd.DataFrame(omniarr[0:len(omnirows),:], index=[omnirows])
 #omnigeo= pd.concat([df, dff])
 #omnigeo.shape
 
 
-# In[140]:
+# In[214]:
 
 colnames=["Year", "Day", "Hour", "Minute","ID IMF Spacecraft", "IF SW Plasma Spacecraft",
           "#points in IMF avg", "#points in plasma avgs", "Percent interp", "Timeshift (sec)", 
@@ -152,7 +157,7 @@ omnidf=pd.read_csv(omnidir+'omni_min2016.asc',delimiter='\s+',header=0,skiprows=
 #(2I4,4I3,3I4,2I7,F6.2,I7, 8F8.2,4F8.1,F7.2,F9.0,F6.2,2F7.2,F6.1,6F8.2,7I6,F7.2, F5.1)
 
 
-# In[141]:
+# In[215]:
 
 # Create DataFrame for UTCDateTime entries
 times = []
@@ -168,30 +173,56 @@ date_df = pd.DataFrame(np.array(times), columns=['Date'])
 omnidf.insert(0, 'Date', pd.Series(np.array(times)))
 
 
-# In[142]:
+# In[216]:
 
 omnidf
 
 
-# In[143]:
+# In[217]:
 
 print(omnidf.shape)
 print(geomagdf.shape)
 
 
-# In[144]:
+# In[225]:
 
-omnidf.merge(geomagdf, left_on='Date', right_on='Date', how='inner')
-
-
-# In[149]:
-
-omnidf.shape
+df = omnidf.merge(geomagdf, left_on='Date', right_on='Date', how='inner')
 
 
-# In[ ]:
+# In[226]:
+
+df
 
 
+# In[227]:
+
+df.columns
+
+
+# In[230]:
+
+times    = df.loc[:,'Date']
+
+raw_data = df.loc[:,['Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, nT (GSE,GSM)',
+       'Bz, nT (GSE)', 'By, nT (GSM)', 'Bz, nT (GSM)', 'RMS SD B scalar, nT',
+       'RMS SD field vector, nT', 'Flow speed, km/s', 'Vx, km/s, GSE',
+       'Vy, km/s, GSE', 'Vz, km/s, GSE', 'Proton density, n/cc',
+       'Temperture, K', 'Flow pressure, nPa', 'Electric Field, mV/m',
+       'Plasma beta', 'Alfven mach number', 'BOU_X', 'BOU_Y', 'BOU_Z', 'BOU_F', 'BRW_X', 'BRW_Y',
+       'BRW_Z', 'BRW_F', 'BSL_X', 'BSL_Y', 'BSL_Z', 'BSL_F', 'CMO_X',
+       'CMO_Y', 'CMO_Z', 'CMO_F', 'DED_X', 'DED_Y', 'DED_Z', 'DED_F',
+       'FRD_X', 'FRD_Y', 'FRD_Z', 'FRD_F', 'FRN_X', 'FRN_Y', 'FRN_Z',
+       'FRN_F', 'GUA_X', 'GUA_Y', 'GUA_Z', 'GUA_F', 'HON_X', 'HON_Y',
+       'HON_Z', 'HON_F', 'NEW_X', 'NEW_Y', 'NEW_Z', 'NEW_F', 'SHU_X',
+       'SHU_Y', 'SHU_Z', 'SHU_F', 'SIT_X', 'SIT_Y', 'SIT_Z', 'SIT_F',
+       'SJG_X', 'SJG_Y', 'SJG_Z', 'SJG_F', 'TUC_X', 'TUC_Y', 'TUC_Z',
+       'TUC_F']]
+
+
+# In[233]:
+
+print(raw_data.values.shape)
+print(times.values.shape)
 
 
 # In[ ]:
