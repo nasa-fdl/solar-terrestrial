@@ -102,17 +102,20 @@ for i in range(len(geoseries)):
 for i in range(len(SWdata)-18):
     series[len(geoseries)+i] = np.array([float(j) for j in SWdata[i+18][1:]])
     series[len(geoseries)+i][np.where(series[len(geoseries)+i]==99999.9)] = np.nan
-    
+
+# Want 0, 1, 2, 3, 62, 65
 #BOU BRW BSL CMO DED FRD FRN GUA HON NEW SHU SIT SJG TUC
 #Year Day Hour Minute
-# Field magnitude average nT, BX nT
-# (GSE, GSM)  BY, nT (GSE)  BZ, nT (GSE)  BY, nT (GSM)  BZ, nT (GSM) 
-# RMS SD B scalar, nT  RMS SD field vector, nT  
-# Speed, km/s  Vx Velocity,km/s  Vy Velocity, km/s  Vz Velocity, km/s
-# Proton Density, n/cc  Temperature, K  Flow pressure, nPa  Electric field, mV/m
-# Total Plasma beta  Alfven mach number  Magnetosonic Mach number
-# S/C Xgse Re  S/C Ygse Re  S/c Zgse Re  BSN location Xgse Re  BSN location Ygse Re  BSN location Zgse Re
-# AE-index, nT  AL-index, nT  AU-index, nT  PCN-index
+# 2 Field magnitude average nT, BX nT
+# 5 (GSE, GSM)  BY, nT (GSE)  BZ, nT (GSE)  BY, nT (GSM)  BZ, nT (GSM)""" 
+# 2 RMS SD B scalar, nT  RMS SD field vector, nT  
+# 4 Speed, km/s"""  Vx Velocity,km/s  Vy Velocity, km/s  Vz Velocity, km/s
+# 3 Proton Density, n/cc  Temperature, K  Flow pressure, nPa
+# 1 Electric field, mV/m
+# 3 Total Plasma beta  Alfven mach number  Magnetosonic Mach number
+# 3 S/C Xgse Re  S/C Ygse Re  S/c Zgse Re
+# 3 BSN location Xgse Re  BSN location Ygse Re  BSN location Zgse Re
+# 4 AE-index, nT  AL-index, nT  AU-index, nT  PCN-index
 
 # New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. 
 # replace outliers (faulty data) with nans
@@ -131,15 +134,33 @@ nans_where = [np.argwhere(np.isnan(x))[:,0] for x in series_no_outliers]
 #        series_no_nans[2*i+1,j] = 1.
 
 # Same eating procedure, no nans.
-series_no_nans = np.zeros((series.shape[0],series.shape[1])) # no nan flag
-series_no_nans = copy.copy(series)
+series_no_nans_1 = np.zeros((series.shape[0],series.shape[1])) # no nan flag
+series_no_nans_1 = copy.copy(series)
 for i in range(len(series)):
     series_mean = np.nanmean(series[i])
     for j in nans_where[i]:
-        series_no_nans[i,j] = series_mean
+        series_no_nans_1[i,j] = series_mean
+
+# Take hourly means
+series_no_nans_hourly = np.zeros((len(series_no_nans_1),series_no_nans_1.shape[1]/60))
+for i in range(len(series_no_nans_1)):
+    series_no_nans_hourly[i] = np.mean(series_no_nans_1[i].reshape((60,series_no_nans_1.shape[1]/60)),axis=0)
+
+# Want 0, 1, 2, 3, 62, 65 select smaller data set.
+index = [0,1,2,3,62,65]
+series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
+for j in range(len(index)):
+    series_no_nans_small[j] = series_no_nans_1[index[j]]
+    
+# unify preprocessing
+#series_no_nans=series_no_nans_hourly
+#series_no_nans=series_no_nans_small
+series_no_nans=series_no_nans_1
 
 # Take derivatives of array
-series_no_nans_diff = np.diff(series_no_nans)
+#series_no_nans_diff = np.diff(series_no_nans)
+series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
+#series_no_nans_diff = series_no_nans[:,1:]
 
 # transform data to be supervised learning
 predict_times = TIMES
