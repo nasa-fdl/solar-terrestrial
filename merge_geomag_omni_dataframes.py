@@ -3,17 +3,12 @@
 
 # colnames
 
-# In[209]:
-
-colstrings = []
-comp.__dict__['stats']['station']+'_'+comp.__dict__['stats']['channel']
-strs = ["" for x in range(ncomps*n_observatories)]
-for c in range(len(colnames)):
-    strs[c] = colnames[c]
-strs
+# In[ ]:
 
 
-# In[210]:
+
+
+# In[1]:
 
 from obspy.core import UTCDateTime
 
@@ -39,7 +34,7 @@ with open(dir+'X_2016_minutes.pkl', 'rb') as f2:
         compseries = pickle.load(f2,encoding='latin1')
 comp=compseries[0]
 times = comp.times()
-numrows = len(t)
+numrows = len(times)
 n_observatories = len(compseries)
 colnames = ["" for x in range(ncomps*n_observatories)]
 
@@ -63,12 +58,12 @@ geomagdf = pd.DataFrame(geo, columns=colnames)
 geomagdf.insert(0, 'Date', pd.Series(np.array(UTCtimes)))
 
 
-# In[211]:
+# In[2]:
 
 geomagdf
 
 
-# In[212]:
+# In[3]:
 
 ##################################################################
 ###                  READING OMNI DATA 
@@ -83,14 +78,14 @@ omnirows = ['Year', 'Day', 'Hour', 'Minute', 'Field magnitude average nT', 'BX n
             'AU-index, nT', 'PCN-index']
 
 
-# In[213]:
+# In[4]:
 
 #dff = pd.DataFrame(omniarr[0:len(omnirows),:], index=[omnirows])
 #omnigeo= pd.concat([df, dff])
 #omnigeo.shape
 
 
-# In[214]:
+# In[5]:
 
 colnames=["Year", "Day", "Hour", "Minute","ID IMF Spacecraft", "IF SW Plasma Spacecraft",
           "#points in IMF avg", "#points in plasma avgs", "Percent interp", "Timeshift (sec)", 
@@ -157,7 +152,7 @@ omnidf=pd.read_csv(omnidir+'omni_min2016.asc',delimiter='\s+',header=0,skiprows=
 #(2I4,4I3,3I4,2I7,F6.2,I7, 8F8.2,4F8.1,F7.2,F9.0,F6.2,2F7.2,F6.1,6F8.2,7I6,F7.2, F5.1)
 
 
-# In[215]:
+# In[6]:
 
 # Create DataFrame for UTCDateTime entries
 times = []
@@ -173,36 +168,35 @@ date_df = pd.DataFrame(np.array(times), columns=['Date'])
 omnidf.insert(0, 'Date', pd.Series(np.array(times)))
 
 
-# In[216]:
+# In[7]:
 
 omnidf
 
 
-# In[217]:
+# In[8]:
 
 print(omnidf.shape)
 print(geomagdf.shape)
 
 
-# In[225]:
+# In[9]:
 
 df = omnidf.merge(geomagdf, left_on='Date', right_on='Date', how='inner')
 
 
-# In[226]:
+# In[10]:
 
 df
 
 
-# In[227]:
+# In[11]:
 
 df.columns
 
 
-# In[230]:
+# In[12]:
 
 times    = df.loc[:,'Date']
-
 raw_data = df.loc[:,['Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, nT (GSE,GSM)',
        'Bz, nT (GSE)', 'By, nT (GSM)', 'Bz, nT (GSM)', 'RMS SD B scalar, nT',
        'RMS SD field vector, nT', 'Flow speed, km/s', 'Vx, km/s, GSE',
@@ -219,7 +213,7 @@ raw_data = df.loc[:,['Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, nT (GSE,GSM)
        'TUC_F']]
 
 
-# In[233]:
+# In[13]:
 
 print(raw_data.values.shape)
 print(times.values.shape)
