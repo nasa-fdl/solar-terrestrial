@@ -58,7 +58,7 @@ def inverse_difference(history, yhat, interval=1):
     return yhat + history[-interval]
 
 # scale train and test data to [-1, 1]
-def scale(train, test, scaler=None):
+def scale(train, test, scaler=None, unit=100.0):
     from sklearn.preprocessing import MinMaxScaler, StandardScaler
     from numpy import array, nanmean, nanmedian, sqrt, concatenate
     
@@ -69,7 +69,7 @@ def scale(train, test, scaler=None):
         #scaler = scaler.fit(train)
         nmean = nanmean(concatenate((train,test)))
         nmedian = nanmedian(concatenate((train,test)))
-        scaler.fit(array([nmedian,nmedian+2*100.0,nmedian-2*100.0]))
+        scaler.fit(array([nmedian,nmedian+2*unit,nmedian-2*unit]))
     else:
         print("Scaler scale, mean",scaler.scale_,scaler.mean_)
     
@@ -101,6 +101,25 @@ def invert_scales(scalers, X, value):
     inverted = scaler.inverse_transform(array)
     return inverted[0, -1]
 
+def remove_trend(raw_values, times):
+    from sklearn.linear_model import LinearRegression
+    import numpy as np
+    nchannels = raw_values.shape[0]
+    new_values = raw_values
+    for i in range(nchannels):
+        y = raw_values[i,:].ravel()
+        print(y)
+        print(times)
+        mask = ~np.isnan(y)
+        print(mask)
+        model = LinearRegression()
+        model.fit(times[mask], y[mask])
+        print(model.coef_)
+        # calculate trend
+        trend = model.predict(X)
+        new_values[i,:] = y - trend
+    return new_values
+        
 def raw_to_sampled(raw_values, window):
     import numpy as np
     from scipy import interpolate
@@ -132,7 +151,7 @@ def raw_to_sampled(raw_values, window):
     #print(sampled_values.shape)
     return sampled_values, time
 
-def sampled_to_scaled(sampled_values, time, nchannels, lags, batch_size, derivative=False, scalers=None):
+def sampled_to_scaled(sampled_values, time, nchannels, lags, batch_size, derivative=False, scalers=None, units=None):
     import numpy as np
     if derivative:
         diff_values = np.zeros([nchannels,time.shape[0]-1],dtype='float')
@@ -177,7 +196,7 @@ def sampled_to_scaled(sampled_values, time, nchannels, lags, batch_size, derivat
     if scalers is None:
         scalers =[]
         for c in range(nchannels):
-            this_scaler, train_scaled_channel, test_scaled_channel = scale(train[:,:,c], test[:,:,c])
+            this_scaler, train_scaled_channel, test_scaled_channel = scale(train[:,:,c], test[:,:,c], unit=units[c])
             train_scaled[:,:,c] = train_scaled_channel
             test_scaled[:,:,c] = test_scaled_channel 
             scalers.append(this_scaler)
@@ -190,6 +209,10 @@ def sampled_to_scaled(sampled_values, time, nchannels, lags, batch_size, derivat
     train_scaled = train_scaled.reshape(train_scaled.shape[0], train_scaled.shape[1]*train_scaled.shape[2])
     test_scaled = test_scaled.reshape(test_scaled.shape[0], test_scaled.shape[1]*test_scaled.shape[2])
     return train_scaled, test_scaled, scalers
+
+def custom_loss(y_true, y_pred):
+    import numpy as np
+    return (y_true[18:] - y_pred[18:])**2
 
 # fit an LSTM network to training data
 def fit_lstm(train, batch_size, nb_epoch, neurons):
@@ -210,14 +233,16 @@ def fit_lstm(train, batch_size, nb_epoch, neurons):
     model.add(LSTM(neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True, return_sequences=True,dropout=0.2))
     #model.add(LSTM(neurons, batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True,dropout=0.2))
     model.add(Dense(y.shape[1]))
-    model.compile(loss='mean_squared_error', optimizer='adam')
+    #model.compile(loss='mean_squared_error', optimizer='adam')
+    model.compile(loss='custom_loss', optimizer='adam')
     
     modelpred = Sequential()
     modelpred.add(LSTM(neurons, batch_input_shape=(1, X.shape[1], X.shape[2]), stateful=True, return_sequences=True, dropout=0.2))
     #modelpred.add(LSTM(neurons, batch_input_shape=(1, X.shape[1], X.shape[2]), stateful=True, dropout=0.2))
     modelpred.add(Dense(y.shape[1]))
-    modelpred.compile(loss='mean_squared_error', optimizer='adam')
-        
+    #modelpred.compile(loss='mean_squared_error', optimizer='adam')
+    model.compile(loss='custom_loss', optimizer='adam')
+
     for i in range(nb_epoch):
         model.fit(X, y, epochs=1, batch_size=batch_size, verbose=(i%20==0), shuffle=False)
         model.reset_states()
