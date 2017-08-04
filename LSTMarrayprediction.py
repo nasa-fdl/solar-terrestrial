@@ -31,6 +31,7 @@ EPOCH = int(config.get('LSTMCFG','EPOCH'))
 TEST_LENGTH = int(config.get('LSTMCFG','TEST_LENGTH'))
 TRAIN_LENGTH = int(config.get('LSTMCFG','TRAIN_LENGTH'))
 NEURONS = int(config.get('LSTMCFG','NEURONS'))
+LAYERS = int(config.get('LSTMCFG','LAYERS'))
 
 # scale train and test data to [-1, 1]. 
 def scale(train, test):
@@ -60,12 +61,18 @@ def invert_scale(scalerlist, value):
 # reset_states() clears state of LSTM. Not used in present one-pass learning.
 # Takes input in matrix with dimensions [samples, time steps, features]
 # Based on hyperparameter study, efficiency and accuracy is maximized with more neurons, fewer layers, more epochs, bigger batch size.
-def fit_lstm(train, batch_size, nb_epoch, neurons):
+def fit_lstm(train, batch_size, nb_epoch, neurons, layers):
     X, y = train[:, 0:1], train.reshape(train.shape[0],train.shape[1]*train.shape[2])
     # create and compile the network
     model = Sequential() 
     # on short trainings, a huge model doesn't seem to do much good.
-    model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))#return sequences = False by default
+    if layers<2:
+        model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True))#return sequences = False by default
+    else:
+        model.add(LSTM(neurons*y.shape[1], batch_input_shape=(batch_size, X.shape[1], X.shape[2]), stateful=True, return_sequences=True))
+        for i in range(layers-2):
+            model.add(LSTM(neurons*y.shape[1],return_sequences=True,stateful=True))
+        model.add(LSTM(neurons*y.shape[1],return_sequences=False,stateful=True))
     model.add(Dense(y.shape[1]))
     model.compile(loss='mean_squared_error', optimizer='adam')
     for i in range(nb_epoch):
@@ -159,8 +166,8 @@ series_no_nans=series_no_nans_1
 
 # Take derivatives of array
 #series_no_nans_diff = np.diff(series_no_nans)
-series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
-#series_no_nans_diff = series_no_nans[:,1:]
+#series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
+series_no_nans_diff = series_no_nans[:,1:]
 
 # transform data to be supervised learning
 predict_times = TIMES
@@ -181,13 +188,23 @@ train, test = supervised_values[:train_length], supervised_values[train_length:t
 scalerlist, train_scaled, test_scaled = scale(train, test)
 
 # fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer", bigger batch size to run faster
-lstm_model = fit_lstm(train_scaled, BATCH, EPOCH, NEURONS)
+lstm_model = fit_lstm(train_scaled, BATCH, EPOCH, NEURONS, LAYERS)
 
 # recover trained weights, generate new lstm with single batch input.
 # matching batch size
 # http://machinelearningmastery.com/use-different-batch-sizes-training-predicting-python-keras/
 new_model = Sequential()
-new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), stateful=True))#return sequences = False by default
+if LAYERS<2:
+    new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), stateful=True))#return_sequences = False by default
+else:
+    new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), return_sequences=True,stateful=True))
+    for i in range(LAYERS-2):
+        new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2],
+                           return_sequences=True,
+                           stateful=True))
+    new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2],
+                       return_sequences=False,
+                       stateful=True))
 new_model.add(Dense(train_scaled.shape[1]*train_scaled.shape[2]))
 new_model.set_weights(lstm_model.get_weights())
 new_model.compile(loss='mean_squared_error',optimizer='adam')
@@ -209,7 +226,7 @@ for i in range(len(test_scaled)):
     yhat = forecast_lstm(new_model, 1, X)#test_scaled[i,0:1])
     predictions[i] = yhat
     # weighting prediction by advanced time squared. This is roughly consistent with 2nd order extrapolation methods, but can easily be tweaked.
-    nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/y[i]**2))) for i in range(len(TIMES))]))
+    nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/(0.000001+y[i]**2)))) for i in range(len(TIMES))]))
     #print i, nrmse[i]
 
 print np.mean(nrmse)
