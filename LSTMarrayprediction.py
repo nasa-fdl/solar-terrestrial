@@ -1,9 +1,11 @@
 # based on http://machinelearningmastery.com/time-series-forecasting-long-short-term-memory-network-python/
-from pandas import read_csv
-from pandas import datetime
-from pandas import DataFrame
-from pandas import concat
-from pandas import Series
+#from pandas import read_csv
+#from pandas import datetime
+#from pandas import DataFrame
+#from pandas import concat
+#from pandas import Series
+from obspy.core import UTCDateTime
+import pandas as pd
 from sklearn.metrics import mean_squared_error
 from sklearn.preprocessing import MinMaxScaler
 from keras.models import Sequential
@@ -13,6 +15,7 @@ from math import sqrt
 from matplotlib import pyplot
 import numpy as np
 import pickle
+import scipy
 import sys
 import ConfigParser
 import copy
@@ -23,7 +26,7 @@ config.read('myconfig.cfg')
 
 DIR = config.get('LSTMCFG','DIR')
 FILENAME = config.get('LSTMCFG','FILENAME')
-FILENAME2 = config.get('LSTMCFG','FILENAME2')
+#FILENAME2 = config.get('LSTMCFG','FILENAME2')
 OUTPUT = config.get('LSTMCFG','OUTPUT')
 TIMES = map(int, config.get('LSTMCFG','TIMES').split(','))
 BATCH = int(config.get('LSTMCFG','BATCH'))
@@ -96,19 +99,26 @@ def reject_outliers(data):
     return filtered
 
 # import data
-timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
-geoseries=np.array(timeseries)
+#timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
+#print DIR+FILENAME
+timeseries=pd.read_pickle(DIR+FILENAME)
+#print timeseries.columns
+series=np.array(timeseries).T
+#print geoseries.shape
+#print geoseries[0,:10]
+#print geoseries[1,:10]
+#print geoseries[:,0]
 
 # temp hack to import pkl
-SWdata = pickle.load(open(DIR + FILENAME2, 'rb'))
+#SWdata = pickle.load(open(DIR + FILENAME2, 'rb'))
 
-series=np.zeros((len(geoseries)+len(SWdata)-18,len(np.array(SWdata[0]))-1))
-print series.shape
-for i in range(len(geoseries)):
-    series[i] = geoseries[i]
-for i in range(len(SWdata)-18):
-    series[len(geoseries)+i] = np.array([float(j) for j in SWdata[i+18][1:]])
-    series[len(geoseries)+i][np.where(series[len(geoseries)+i]==99999.9)] = np.nan
+#series=np.zeros((len(geoseries)+len(SWdata)-18,len(np.array(SWdata[0]))-1))
+#print series.shape
+#for i in range(len(geoseries)):
+#    series[i] = geoseries[i]
+#for i in range(len(SWdata)-18):
+#    series[len(geoseries)+i] = np.array([float(j) for j in SWdata[i+18][1:]])
+#    series[len(geoseries)+i][np.where(series[len(geoseries)+i]==99999.9)] = np#.nan
 
 # Want 0, 1, 2, 3, 62, 65
 #BOU BRW BSL CMO DED FRD FRN GUA HON NEW SHU SIT SJG TUC
@@ -149,15 +159,18 @@ for i in range(len(series)):
         series_no_nans_1[i,j] = series_mean
 
 # Take hourly means
-series_no_nans_hourly = np.zeros((len(series_no_nans_1),series_no_nans_1.shape[1]/60))
-for i in range(len(series_no_nans_1)):
-    series_no_nans_hourly[i] = np.mean(series_no_nans_1[i].reshape((60,series_no_nans_1.shape[1]/60)),axis=0)
+#series_no_nans_hourly = np.zeros((len(series_no_nans_1),series_no_nans_1.shape[1]/60))
+#for i in range(len(series_no_nans_1)):
+#    series_no_nans_hourly[i] = np.mean(series_no_nans_1[i].reshape((60,series_no_nans_1.shape[1]/60)),axis=0)
 
 # Want 0, 1, 2, 3, 62, 65 select smaller data set.
-index = [0,1,2,3,62,65]
-series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
-for j in range(len(index)):
-    series_no_nans_small[j] = series_no_nans_1[index[j]]
+#index = [0,1,2,3,62,65]
+#series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
+#for j in range(len(index)):
+#    series_no_nans_small[j] = series_no_nans_1[index[j]]
+
+#np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans_small, delimiter=",")
+#sys.exit()
     
 # unify preprocessing
 #series_no_nans=series_no_nans_hourly
@@ -166,8 +179,8 @@ series_no_nans=series_no_nans_1
 
 # Take derivatives of array
 #series_no_nans_diff = np.diff(series_no_nans)
-#series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
-series_no_nans_diff = series_no_nans[:,1:]
+series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
+#series_no_nans_diff = series_no_nans[:,1:]
 
 # transform data to be supervised learning
 predict_times = TIMES
