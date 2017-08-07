@@ -8,7 +8,7 @@ import pandas as pd
 import numpy as np
 import sys
 
-print(sys.argv[1])
+#print(sys.argv[1])
 
 omnidir = './'
 colnames = ['Date_Orig', 'K_F', 'K_p']
@@ -54,7 +54,8 @@ for i in range(newdf['K_p'].shape[0]):
     else:
         newdf['K_p'].values[i] = last_value
 
-lookforward = int(sys.argv[1])
+lookforward = (sys.argv[1])
+lookforward = int(lookforward.replace('m','-'))
 print("Look forward =", lookforward)       
 #lookforward = 180 #In integer minutes
 future_K_p = newdf['K_p'].values
@@ -144,9 +145,10 @@ input = newdf.loc[:,['TimeOfDay','Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, 
 output = newdf.loc[:,['K_p{0:02d}h'.format(int(lookforward/60))]]
 
 ind = int(0.7*input.shape[0])
-X_train, X_test = input.values[0:ind-lookforward,:], input.values[ind:-lookforward,:]
-y_train, y_test = output.values[0:ind-lookforward,:], output.values[ind:-lookforward,:]
-times_train, times_test = times.values[0:ind-lookforward], times.values[ind:-lookforward]
+
+X_train, X_test = input.values[0:ind-lookforward,:], input.values[ind:input.shape[0]-lookforward,:]
+y_train, y_test = output.values[0:ind-lookforward,:], output.values[ind:input.shape[0]-lookforward,:]
+times_train, times_test = times.values[0:ind-lookforward], times.values[ind:input.shape[0]-lookforward]
 
 #Flatten into 1d array and scale
 def kp_scale(y):
@@ -198,16 +200,14 @@ class persist_model:
     def __init__(self):
         self.data = []
         
-    def fit(self):
+    def fit(self, x, y):
         print("fitted")
-        #self.data.append(x)
             
-    def predict(self,x):
-        return pred(x)
+    def predict(self,y):
+        return y
 #End of Persist model class definition
 
 pmodel = persist_model()
-pmodel.fit()
 models.append(pmodel)
 modelnames.append('Persist')
 
@@ -298,11 +298,15 @@ for m in range(len(models)):
         model.fit(X_train, y_train)
 
     models[m] = model
-    y_pred = (model.predict(X_test)).ravel()
+    if (modelnames[m] != 'Persist'):
+        y_pred = (model.predict(X_test)).ravel()
+    else:
+        y_pred = np.roll(y_test.ravel(),1)
+        
     y_preds[m,:] = y_pred.ravel()
     rms[m] = np.mean((y_pred-y_test)*(y_pred-y_test))
     print(modelnames[m], rms[m])
-    f.write("{0}: {1:02d} {2:7.4f} {3:7.4f}\n".format(modelnames[m], lookforward, rms[m], np.mean((y_pred[27000:18000]-y_test[27000:18000])*(y_pred[27000:18000]-y_test[27000:18000]))))
+    f.write("{0}: {1:02d} {2:7.4f} {3:7.4f}\n".format(modelnames[m], lookforward, rms[m], np.mean((y_pred[27000:45000]-y_test[27000:45000])*(y_pred[27000:45000]-y_test[27000:45000]))))
     
     plt.hist2d(kp_unscale(y_test), kp_unscale(y_preds[m,:]), range=[[0,9],[0,9]], bins=[10,10], norm=LogNorm())
     plt.title(modelnames[m])
