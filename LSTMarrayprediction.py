@@ -102,7 +102,19 @@ def reject_outliers(data):
 #timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
 #print DIR+FILENAME
 timeseries=pd.read_pickle(DIR+FILENAME)
-#print timeseries.columns
+#print timeseries.columns[:10]
+#print timeseries.columns[10:20]
+#print timeseries.columns[20:30]
+#print timeseries.columns[30:40]
+#print timeseries.columns[40:50]
+#print timeseries.columns[50:60]
+#print timeseries.columns[60:70]
+#print timeseries.columns[70:80]
+#print timeseries.columns[80:90]
+#print timeseries.columns[90:100]
+#print timeseries.columns[100:]
+#sys.exit()
+
 series=np.array(timeseries).T
 #print geoseries.shape
 #print geoseries[0,:10]
@@ -136,10 +148,13 @@ series=np.array(timeseries).T
 
 # New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. 
 # replace outliers (faulty data) with nans
-series_no_outliers = [reject_outliers(x) for x in series]
+series_no_outliers = series #[reject_outliers(x) for x in series]
 
 # locate nans
 nans_where = [np.argwhere(np.isnan(x))[:,0] for x in series_no_outliers]
+#nans_where = [np.union1d(np.argwhere(np.isnan(x))[:,0],np.argwhere(x>5000.)[:,0]) for x in series_no_outliers]
+#bignums_where = [np.argwhere(x>5000.)[:,0] for x in series_no_outliers]
+
 
 # replace nans with mean, creates riffled array with a 0-1 nan-replacement flag to tell LSTM that the data is flat.
 #series_no_nans = np.zeros((2*series.shape[0],series.shape[1]))
@@ -156,31 +171,44 @@ series_no_nans_1 = copy.copy(series)
 for i in range(len(series)):
     series_mean = np.nanmean(series[i])
     for j in nans_where[i]:
-        series_no_nans_1[i,j] = series_mean
+        #series_no_nans_1[i,j] = series_mean
+        series_no_nans_1[i,j] = 99999999.
 
 # Take hourly means
 #series_no_nans_hourly = np.zeros((len(series_no_nans_1),series_no_nans_1.shape[1]/60))
 #for i in range(len(series_no_nans_1)):
 #    series_no_nans_hourly[i] = np.mean(series_no_nans_1[i].reshape((60,series_no_nans_1.shape[1]/60)),axis=0)
 
-# Want 0, 1, 2, 3, 62, 65 select smaller data set.
-#index = [0,1,2,3,62,65]
-#series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
-#for j in range(len(index)):
-#    series_no_nans_small[j] = series_no_nans_1[index[j]]
+# Want 17 (Bz GSE) 19 (Bz GSM) 22 (flow speed) and 99-102 (TUC XYZF)
+#index = [17, 19, 22, 99, 100, 101, 102]
+index = [19, 22, 101]
+series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
+for j in range(len(index)):
+    series_no_nans_small[j] = series_no_nans_1[index[j]]
 
-#np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans_small, delimiter=",")
+# Clean the data up! #For 19 and 22, clip big numbers, for 101 clip reall big numbers.
+series_no_nans_small2 = np.zeros((len(index),series_no_nans_1.shape[1]))
+cutoff = [5000.,5000.,500000.]
+for j in range(len(index)):
+    for i in range(series_no_nans_small.shape[1]):
+        if series_no_nans_small[j,i]<cutoff[j]:
+            series_no_nans_small2[j,i] = series_no_nans_small[j,i]
+        else:
+            series_no_nans_small2[j,i] = series_no_nans_small2[j,i-1]
+
+
+np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans_small2, delimiter=",")
 #sys.exit()
     
 # unify preprocessing
 #series_no_nans=series_no_nans_hourly
-#series_no_nans=series_no_nans_small
-series_no_nans=series_no_nans_1
+series_no_nans=series_no_nans_small2
+#series_no_nans=series_no_nans_1
 
 # Take derivatives of array
 #series_no_nans_diff = np.diff(series_no_nans)
-series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
-#series_no_nans_diff = series_no_nans[:,1:]
+#series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
+series_no_nans_diff = series_no_nans[:,1:]
 
 # transform data to be supervised learning
 predict_times = TIMES
