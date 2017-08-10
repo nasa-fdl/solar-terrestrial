@@ -207,8 +207,8 @@ for i in range(series_no_nans_test.shape[1]):
 #series_no_nans=series_no_nans_1
 #series_no_nans=series_no_nans_hourly
 #series_no_nans=series_no_nans_small
-#series_no_nans=series_no_nans_small2
-series_no_nans=series_no_nans_test
+series_no_nans=series_no_nans_small2
+#series_no_nans=series_no_nans_test
 
 #np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans, delimiter=",")
 
