@@ -65,7 +65,7 @@ def invert_scale(scalerlist, value):
 # Takes input in matrix with dimensions [samples, time steps, features]
 # Based on hyperparameter study, efficiency and accuracy is maximized with more neurons, fewer layers, more epochs, bigger batch size.
 def fit_lstm(train, batch_size, nb_epoch, neurons, layers):
-    X, y = train[:, 0:1], train.reshape(train.shape[0],train.shape[1]*train.shape[2])
+    X, y = train[:, 0:1], train[:,1:].reshape(train.shape[0],(train.shape[1]-1)*train.shape[2])
     # create and compile the network
     model = Sequential() 
     # on short trainings, a huge model doesn't seem to do much good.
@@ -181,7 +181,7 @@ for i in range(len(series)):
 
 # Want 17 (Bz GSE) 19 (Bz GSM) 22 (flow speed) and 99-102 (TUC XYZF)
 #index = [17, 19, 22, 99, 100, 101, 102]
-index = [19, 22, 101]
+index = [19,22,101]
 series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
 for j in range(len(index)):
     series_no_nans_small[j] = series_no_nans_1[index[j]]
@@ -196,22 +196,30 @@ for j in range(len(index)):
         else:
             series_no_nans_small2[j,i] = series_no_nans_small2[j,i-1]
 
+# Generate test data
+series_no_nans_test = np.zeros((len(index),series_no_nans_1.shape[1]))
+for i in range(series_no_nans_test.shape[1]):
+    series_no_nans_test[0,i] = np.cos(.1*i)
+    series_no_nans_test[1,i] = np.cos(.01*i+0.5)
+    series_no_nans_test[2,i] = np.cos(0.001*i+0.000000001*i*i)
 
-np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans_small2, delimiter=",")
-#sys.exit()
-    
 # unify preprocessing
-#series_no_nans=series_no_nans_hourly
-series_no_nans=series_no_nans_small2
 #series_no_nans=series_no_nans_1
+#series_no_nans=series_no_nans_hourly
+#series_no_nans=series_no_nans_small
+#series_no_nans=series_no_nans_small2
+series_no_nans=series_no_nans_test
+
+#np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans, delimiter=",")
 
 # Take derivatives of array
 #series_no_nans_diff = np.diff(series_no_nans)
 #series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
 series_no_nans_diff = series_no_nans[:,1:]
 
-# transform data to be supervised learning
-predict_times = TIMES
+# transform data to be supervised learning.
+# prepend 0 to TIMES to construct the input vector
+predict_times = [0]+TIMES
 max_predict=max(predict_times)
 supervised_values = np.zeros((series_no_nans_diff.shape[1]+max_predict+1,len(predict_times),series_no_nans_diff.shape[0]))
 for i in range(len(predict_times)):
@@ -236,17 +244,17 @@ lstm_model = fit_lstm(train_scaled, BATCH, EPOCH, NEURONS, LAYERS)
 # http://machinelearningmastery.com/use-different-batch-sizes-training-predicting-python-keras/
 new_model = Sequential()
 if LAYERS<2:
-    new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), stateful=True))#return_sequences = False by default
+    new_model.add(LSTM(NEURONS*(train_scaled.shape[1]-1)*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), stateful=True))#return_sequences = False by default
 else:
-    new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), return_sequences=True,stateful=True))
+    new_model.add(LSTM(NEURONS*(train_scaled.shape[1]-1)*train_scaled.shape[2], batch_input_shape=(1, 1, train_scaled.shape[2]), return_sequences=True,stateful=True))
     for i in range(LAYERS-2):
-        new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2],
+        new_model.add(LSTM(NEURONS*(train_scaled.shape[1]-1)*train_scaled.shape[2],
                            return_sequences=True,
                            stateful=True))
-    new_model.add(LSTM(NEURONS*train_scaled.shape[1]*train_scaled.shape[2],
+    new_model.add(LSTM(NEURONS*(train_scaled.shape[1]-1)*train_scaled.shape[2],
                        return_sequences=False,
                        stateful=True))
-new_model.add(Dense(train_scaled.shape[1]*train_scaled.shape[2]))
+new_model.add(Dense((train_scaled.shape[1]-1)*train_scaled.shape[2]))
 new_model.set_weights(lstm_model.get_weights())
 new_model.compile(loss='mean_squared_error',optimizer='adam')
 
@@ -255,22 +263,22 @@ train_reshaped = train_scaled[:, 0].reshape(train_scaled.shape[0], 1, train_scal
 new_model.predict(train_reshaped, batch_size=1)
 
 # walk-forward validation on the remaining test data
-bestresult = np.zeros(test_scaled.shape)
-predictions = np.zeros(test_scaled.shape)
+bestresult = np.zeros((test_scaled.shape[0],test_scaled.shape[1]-1,test_scaled.shape[2]))
+predictions = np.zeros(bestresult.shape)
 #predictionsnonML = np.zeros(test_scaled.shape)
-nrmse=np.zeros(test.shape[0])
-nrmsenonML=np.zeros(test.shape[0])
+#nrmse=np.zeros(test.shape[0])
+#nrmsenonML=np.zeros(test.shape[0])
 np.set_printoptions(precision=2) 
 for i in range(len(test_scaled)):
-    X, y = test_scaled[i, 0:1], test_scaled[i]
+    X, y = test_scaled[i, 0:1], test_scaled[i,1:]
     bestresult[i] = y
-    yhat = forecast_lstm(new_model, 1, X)#test_scaled[i,0:1])
+    yhat = forecast_lstm(new_model, 1, X)
     predictions[i] = yhat
     # weighting prediction by advanced time squared. This is roughly consistent with 2nd order extrapolation methods, but can easily be tweaked.
-    nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/(0.000001+y[i]**2)))) for i in range(len(TIMES))]))
+    #nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/(0.000001+y[i]**2)))) for i in range(len(TIMES))]))
     #print i, nrmse[i]
 
-print np.mean(nrmse)
+#print np.mean(nrmse)
 
 # Invert scaling
 bestresult_unscale = np.insert(invert_scale(scalerlist,bestresult),0,0.,axis=0)
