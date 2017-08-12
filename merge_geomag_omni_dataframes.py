@@ -100,7 +100,7 @@ colnames=["Year", "Day", "Hour", "Minute","ID IMF Spacecraft", "IF SW Plasma Spa
           "Magnetosonic mach number"]
 print(len(colnames))
 omnidir = '/data/st/omni/high_res_omni/'
-omnidf=pd.read_csv(omnidir+'omni_min2016.asc',delimiter='\s+',header=0,skiprows=0,names=colnames)
+omnidf=pd.read_csv(omnidir+'omni_min2016.asc',delimiter='\s+',skiprows=0,names=colnames)
 
 #          I4      1 ... 365 or 366
 #01#Year

@@ -7,6 +7,7 @@ from obspy.core import UTCDateTime
 import pandas as pd
 import numpy as np
 import sys
+import pickle
 
 #print(sys.argv[1])
 
@@ -56,11 +57,17 @@ for i in range(newdf['K_p'].shape[0]):
 
 lookforward = (sys.argv[1])
 lookforward = int(lookforward.replace('m','-'))
-print("Look forward =", lookforward)       
+print("========================Look forward =====================", lookforward)       
 #lookforward = 180 #In integer minutes
 future_K_p = newdf['K_p'].values
 future_K_p = np.roll(future_K_p, - lookforward)
 newdf.insert(newdf.shape[1], "K_p{0:02d}h".format(int(lookforward/60)), pd.Series(np.array(future_K_p)))
+
+#if lookforward != (-60):
+#    future_K_p = newdf['K_p'].values
+#    future_K_p = np.roll(future_K_p, - (-60))
+#    newdf.insert(newdf.shape[1], "K_p{0:02d}h".format(int(lookforward/60)), pd.Series(np.array(future_K_p)))
+    
 
 #lookforward = 180*2 #In integer minutes
 #future_K_p = newdf['K_p'].values
@@ -114,7 +121,7 @@ print(newdf['K_p'].values.max(),newdf['K_p'].values.min())
 # In[164]:
 
 times = newdf.loc[:,'Date']
-input = newdf.loc[:,['TimeOfDay','Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, nT (GSE,GSM)',
+input = newdf.loc[:,['K_p','TimeOfDay','Field mag avg, nT', 'Bx, nT (GSE, GSM)', 'By, nT (GSE,GSM)',
                      'Bz, nT (GSE)', 'By, nT (GSM)', 'Bz, nT (GSM)', 
                      #'RMS SD B scalar, nT',
                      #'RMS SD field vector, nT', 
@@ -203,8 +210,8 @@ class persist_model:
     def fit(self, x, y):
         print("fitted")
             
-    def predict(self,y):
-        return y
+    def predict(self,x):
+        return kp_scale(x[:,0])
 #End of Persist model class definition
 
 pmodel = persist_model()
@@ -297,14 +304,20 @@ for m in range(len(models)):
     else:
         model.fit(X_train, y_train)
 
+        
     models[m] = model
-    if (modelnames[m] != 'Persist'):
-        y_pred = (model.predict(X_test)).ravel()
-    else:
-        y_pred = np.roll(y_test.ravel(),1)
+    #if (modelnames[m] != 'Persist'):
+    y_pred = (model.predict(X_test)).ravel()
+    #else:
+    #    y_pred = np.roll(y_test.ravel(),1)
         
     y_preds[m,:] = y_pred.ravel()
     rms[m] = np.mean((y_pred-y_test)*(y_pred-y_test))
+    residuals = y_pred-y_test
+    gherkin = {"y_test":y_test, "y_pred":y_pred.ravel(), "residuals":residuals}
+    # Bala, insert code here to calculate p values for residual
+    pickle.dump( gherkin , open( "{0}/{1}_fit_residuals.pkl".format(dir,modelnames[m]), "wb" ) )
+    
     print(modelnames[m], rms[m])
     f.write("{0}: {1:02d} {2:7.4f} {3:7.4f}\n".format(modelnames[m], lookforward, rms[m], np.mean((y_pred[27000:45000]-y_test[27000:45000])*(y_pred[27000:45000]-y_test[27000:45000]))))
     
@@ -316,14 +329,14 @@ f.close()
 
 # In[167]:
 
-for m in range(len(models)):
-    plt.hist2d(kp_unscale(y_test), kp_unscale(y_preds[m,:]))#,norm=LogNorm())
-    plt.xlim(0,9)
-    plt.ylim(0,9)
-    plt.title(modelnames[m])
-    plt.colorbar()
+#for m in range(len(models)):
+#    plt.hist2d(kp_unscale(y_test), kp_unscale(y_preds[m,:]))#,norm=LogNorm())
+#    plt.xlim(0,9)
+#    plt.ylim(0,9)
+#    plt.title(modelnames[m])
+#    plt.colorbar()
     #plt.show()
-    plt.savefig('{0}/kp_regress_hist2d_{1}.jpg'.format(dir,modelnames[m]))
+#    plt.savefig('{0}/kp_regress_hist2d_{1}.jpg'.format(dir,modelnames[m]))
         
 # In[ ]:
 
