@@ -3,3 +3,4 @@
 *.txt
 LSTMtute*.py
 myconfig.cfg
+*.pyc

@@ -25,13 +25,15 @@ import pandas as pd
 #
 #
 
-dir = '/data/st/geomag_2015_2016_xyzf/'
+#dir = '/data/st/geomag_2015_2016_xyzf/'
+dir = './'
 filenames = ['X_2016_minutes.pkl', 'Y_2016_minutes.pkl','Z_2016_minutes.pkl','F_2016_minutes.pkl']
 ncomps = len(filenames)
 
 # First get number of rows and number of observatories
 with open(dir+'X_2016_minutes.pkl', 'rb') as f2:
-        compseries = pickle.load(f2,encoding='latin1')
+#        compseries = pickle.load(f2,encoding='latin1')
+        compseries = pickle.load(f2)
 comp=compseries[0]
 times = comp.times()
 numrows = len(times)
@@ -48,7 +50,8 @@ geo = np.zeros([numrows,ncomps*len(compseries)])
 # Geomag array   
 for c in range(len(filenames)):
     with open(dir+filenames[c], 'rb') as f2:
-        compseries = pickle.load(f2,encoding='latin1')
+        #compseries = pickle.load(f2,encoding='latin1')
+        compseries = pickle.load(f2)
     for o in range(n_observatories):
         geo[:,ncomps*o + c] = compseries[o].data
         colnames[ncomps*o + c] = compseries[o].__dict__['stats']['station']+'_'+compseries[o].__dict__['stats']['channel']
@@ -99,7 +102,8 @@ colnames=["Year", "Day", "Hour", "Minute","ID IMF Spacecraft", "IF SW Plasma Spa
           "ASY/D index, nT", "ASY/H index, nT", "PC(N) index, nT", 
           "Magnetosonic mach number"]
 print(len(colnames))
-omnidir = '/data/st/omni/high_res_omni/'
+#omnidir = '/data/st/omni/high_res_omni/'
+omnidir = './'
 omnidf=pd.read_csv(omnidir+'omni_min2016.asc',delimiter='\s+',skiprows=0,names=colnames)
 
 #          I4      1 ... 365 or 366
