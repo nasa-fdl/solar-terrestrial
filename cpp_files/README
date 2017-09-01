@@ -1,0 +1,3 @@
+A few short c++ programs to convert data in a fast way.
+Assumes that original data to be converted is in /data/st/
+Note: Probably should be converted to python for c++ phobic people.
