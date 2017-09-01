@@ -15,6 +15,8 @@ python, anaconda, keras-gp, scikit-learn, pandas
 How to run
 -----
 
+For some of the csv files c++ programs were used for conversion.  They can be found in cpp_files subdirectory.  These are placeholder programs and probably should be converted to python for c++ phobic people.  Check the README in that subdirectory for further details.  
+
 For either Project 1 or Project 2 edit the config.cfg file to point to the appropriate directory and import data.
 
 Project 1: geomag with omni solar wind data
