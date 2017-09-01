@@ -1,3 +1,18 @@
-A few short c++ programs to convert data in a fast way.
-Assumes that original data to be converted is in /data/st/
+There are two c++ programs used to convert csv data.  One for geomag data and one for kpindex data.  At the time, deadlines were looming, the format of the csv files were complex enough and python and its libraries obfuscated enough that it was easier to write code in c++ to do the the job.  
+
+The geomag csv files convert the 14 US geomag stations.  Change the geomagcnv.cpp file for other stations, if you have that data.
+
+Requiements:
+1) Working gcc c++ compiler.  This was compiled on Ubuntu 16.04, but should work with any c++ compiler.  
+2) Both programs assume data is stored off the root subdirectory in /data/st/.  Change the source, cpp file, if it is located anywhere else.
+
+To Build:
+Type make and press enter.
+
+To run:
+For conversion of geomag csv files, type geomagcnv and press enter.
+For conversion of kpindex csv files, type kpindexcnv and press enter.
+
+For either of these, it make take awhile to complete.
+
 Note: Probably should be converted to python for c++ phobic people.
