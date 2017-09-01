@@ -1,9 +1,4 @@
-# based on http://machinelearningmastery.com/time-series-forecasting-long-short-term-memory-network-python/
-#from pandas import read_csv
-#from pandas import datetime
-#from pandas import DataFrame
-#from pandas import concat
-#from pandas import Series
+# initially based on http://machinelearningmastery.com/time-series-forecasting-long-short-term-memory-network-python/
 from obspy.core import UTCDateTime
 import pandas as pd
 from sklearn.metrics import mean_squared_error
@@ -26,7 +21,6 @@ config.read('myconfig.cfg')
 
 DIR = config.get('LSTMCFG','DIR')
 FILENAME = config.get('LSTMCFG','FILENAME')
-#FILENAME2 = config.get('LSTMCFG','FILENAME2')
 OUTPUT = config.get('LSTMCFG','OUTPUT')
 TIMES = map(int, config.get('LSTMCFG','TIMES').split(','))
 BATCH = int(config.get('LSTMCFG','BATCH'))
@@ -42,8 +36,7 @@ def scale(train, test):
     scalerlist = list()
     train_scaled = np.zeros(train.shape)
     test_scaled = np.zeros(test.shape)
-    #for i in range(0,train.shape[2],2):#Don't operate on nan flag
-    for i in range(train.shape[2]):# Not operating on nans
+    for i in range(train.shape[2]):
         scaler = MinMaxScaler(feature_range=(-1, 1))
         scaler = scaler.fit(train[:,0,i].reshape(-1,1))
         train_scaled[:,:,i] = scaler.transform(train[:,:,i])
@@ -54,16 +47,16 @@ def scale(train, test):
 # inverse scaling for a forecasted value
 def invert_scale(scalerlist, value):
     inverted = np.zeros(value.shape)
-    #for i in range(0,value.shape[2],2): # skips nan flag
-        #inverted[:,:,i] = scalerlist[i/2].inverse_transform(value[:,:,i])
-    for i in range(value.shape[2]): # no nan flag
+    for i in range(value.shape[2]): 
         inverted[:,:,i] = scalerlist[i].inverse_transform(value[:,:,i])
     return inverted
 
-# LSTM is a type of RNN. Does not need window lagged observation (stateful=True)
+# LSTM is a type of RNN. Does not need window lagged observation
+# (stateful=True)
 # reset_states() clears state of LSTM. Not used in present one-pass learning.
 # Takes input in matrix with dimensions [samples, time steps, features]
-# Based on hyperparameter study, efficiency and accuracy is maximized with more neurons, fewer layers, more epochs, bigger batch size.
+# Based on preliminary hyperparameter study, efficiency and accuracy is
+# maximized with more neurons, fewer layers, more epochs, bigger batch size.
 def fit_lstm(train, batch_size, nb_epoch, neurons, layers):
     X, y = train[:, 0:1], train[:,1:].reshape(train.shape[0],(train.shape[1]-1)*train.shape[2])
     # create and compile the network
@@ -85,12 +78,11 @@ def fit_lstm(train, batch_size, nb_epoch, neurons, layers):
 
 # perform forecasts
 def forecast_lstm(model, batch_size, X):
-    #X = np.array([X,X,X,X,X,X,X,X,X,X])
     X = X.reshape(X.shape[0], 1, X.shape[1])
     yhat = model.predict(X, batch_size=batch_size)
     return yhat[0].reshape((yhat.shape[1]/X.shape[2],X.shape[2]))
 
-# scrub outliers
+# This function scrubs outliers beyond m standard deviations
 def reject_outliers(data):
     m = 10
     u = np.nanmean(data)
@@ -99,42 +91,13 @@ def reject_outliers(data):
     return filtered
 
 # import data
-#timeseries=pickle.load(open(DIR + FILENAME, 'rb'))
-#print DIR+FILENAME
 timeseries=pd.read_pickle(DIR+FILENAME)
-#print timeseries.columns[:10]
-#print timeseries.columns[10:20]
-#print timeseries.columns[20:30]
-#print timeseries.columns[30:40]
-#print timeseries.columns[40:50]
-#print timeseries.columns[50:60]
-#print timeseries.columns[60:70]
-#print timeseries.columns[70:80]
-#print timeseries.columns[80:90]
-#print timeseries.columns[90:100]
-#print timeseries.columns[100:]
-#sys.exit()
 
 series=np.array(timeseries).T
-#print geoseries.shape
-#print geoseries[0,:10]
-#print geoseries[1,:10]
-#print geoseries[:,0]
 
-# temp hack to import pkl
-#SWdata = pickle.load(open(DIR + FILENAME2, 'rb'))
-
-#series=np.zeros((len(geoseries)+len(SWdata)-18,len(np.array(SWdata[0]))-1))
-#print series.shape
-#for i in range(len(geoseries)):
-#    series[i] = geoseries[i]
-#for i in range(len(SWdata)-18):
-#    series[len(geoseries)+i] = np.array([float(j) for j in SWdata[i+18][1:]])
-#    series[len(geoseries)+i][np.where(series[len(geoseries)+i]==99999.9)] = np#.nan
-
-# Want 0, 1, 2, 3, 62, 65
-#BOU BRW BSL CMO DED FRD FRN GUA HON NEW SHU SIT SJG TUC
-#Year Day Hour Minute
+# Summary of data types found in the default file demo_2016.pkl
+# 14x4 BOU BRW BSL CMO DED FRD FRN GUA HON NEW SHU SIT SJG TUC
+# 4 Year Day Hour Minute
 # 2 Field magnitude average nT, BX nT
 # 5 (GSE, GSM)  BY, nT (GSE)  BZ, nT (GSE)  BY, nT (GSM)  BZ, nT (GSM)""" 
 # 2 RMS SD B scalar, nT  RMS SD field vector, nT  
@@ -146,38 +109,19 @@ series=np.array(timeseries).T
 # 3 BSN location Xgse Re  BSN location Ygse Re  BSN location Zgse Re
 # 4 AE-index, nT  AL-index, nT  AU-index, nT  PCN-index
 
-# New data processing. This will take series data, elide nans, add a bad data flag per channel, and scratch out wild outliers. 
 # replace outliers (faulty data) with nans
-series_no_outliers = series #[reject_outliers(x) for x in series]
+series_no_outliers = series #OR NOT [reject_outliers(x) for x in series]
 
 # locate nans
 nans_where = [np.argwhere(np.isnan(x))[:,0] for x in series_no_outliers]
-#nans_where = [np.union1d(np.argwhere(np.isnan(x))[:,0],np.argwhere(x>5000.)[:,0]) for x in series_no_outliers]
-#bignums_where = [np.argwhere(x>5000.)[:,0] for x in series_no_outliers]
-
-
-# replace nans with mean, creates riffled array with a 0-1 nan-replacement flag to tell LSTM that the data is flat.
-#series_no_nans = np.zeros((2*series.shape[0],series.shape[1]))
-#series_no_nans[::2] = series
-#for i in range(len(series)):
-#    series_mean = np.nanmean(series[i])
-#    for j in nans_where[i]:
-#        series_no_nans[2*i,j] = series_mean
-#        series_no_nans[2*i+1,j] = 1.
 
 # Same eating procedure, no nans.
-series_no_nans_1 = np.zeros((series.shape[0],series.shape[1])) # no nan flag
+series_no_nans_1 = np.zeros((series.shape[0],series.shape[1])) 
 series_no_nans_1 = copy.copy(series)
 for i in range(len(series)):
     series_mean = np.nanmean(series[i])
     for j in nans_where[i]:
-        #series_no_nans_1[i,j] = series_mean
         series_no_nans_1[i,j] = 99999999.
-
-# Take hourly means
-#series_no_nans_hourly = np.zeros((len(series_no_nans_1),series_no_nans_1.shape[1]/60))
-#for i in range(len(series_no_nans_1)):
-#    series_no_nans_hourly[i] = np.mean(series_no_nans_1[i].reshape((60,series_no_nans_1.shape[1]/60)),axis=0)
 
 # Want 17 (Bz GSE) 19 (Bz GSM) 22 (flow speed) and 99-102 (TUC XYZF)
 #index = [17, 19, 22, 99, 100, 101, 102]
@@ -186,7 +130,9 @@ series_no_nans_small = np.zeros((len(index),series_no_nans_1.shape[1]))
 for j in range(len(index)):
     series_no_nans_small[j] = series_no_nans_1[index[j]]
 
-# Clean the data up! #For 19 and 22, clip big numbers, for 101 clip reall big numbers.
+# Clean the data up!
+# For 19 and 22, clip big numbers, for 101 clip really big numbers.
+# THIS NEEDS TO BE GENERALIZED FOR OTHER DATA STREAMS
 series_no_nans_small2 = np.zeros((len(index),series_no_nans_1.shape[1]))
 cutoff = [5000.,5000.,500000.]
 for j in range(len(index)):
@@ -196,7 +142,7 @@ for j in range(len(index)):
         else:
             series_no_nans_small2[j,i] = series_no_nans_small2[j,i-1]
 
-# Generate test data
+# Generate test data (useful for debugging)
 series_no_nans_test = np.zeros((len(index),series_no_nans_1.shape[1]))
 for i in range(series_no_nans_test.shape[1]):
     series_no_nans_test[0,i] = np.cos(.1*i)
@@ -205,14 +151,14 @@ for i in range(series_no_nans_test.shape[1]):
 
 # unify preprocessing
 #series_no_nans=series_no_nans_1
-#series_no_nans=series_no_nans_hourly
 #series_no_nans=series_no_nans_small
 series_no_nans=series_no_nans_small2
 #series_no_nans=series_no_nans_test
 
+# output the current raw data for debugging or parallel analysis
 #np.savetxt(DIR+OUTPUT+'_rawdatasmall.csv', series_no_nans, delimiter=",")
 
-# Take derivatives of array
+# Take derivatives of array (if data needs detrending)
 #series_no_nans_diff = np.diff(series_no_nans)
 #series_no_nans_diff = np.gradient(series_no_nans, axis=1)[:,1:]
 series_no_nans_diff = series_no_nans[:,1:]
@@ -226,9 +172,6 @@ for i in range(len(predict_times)):
     supervised_values[predict_times[i]:-max_predict+predict_times[i]-1,i] = series_no_nans_diff.T
 
 # split data into train and test-sets
-#test_length = 10
-#train, test = supervised_values[:100], supervised_values[100:100+test_length]
-#test_length = int(len(supervised_values)/100)
 test_length = TEST_LENGTH
 train_length = TRAIN_LENGTH
 train, test = supervised_values[:train_length], supervised_values[train_length:train_length+test_length]
@@ -236,11 +179,11 @@ train, test = supervised_values[:train_length], supervised_values[train_length:t
 # transform the scale of the data
 scalerlist, train_scaled, test_scaled = scale(train, test)
 
-# fit the model. Hyperparams: 1 pass, 2*56 neuron "hidden layer", bigger batch size to run faster
+# fit the model. Hyperparameters set in config file. 
 lstm_model = fit_lstm(train_scaled, BATCH, EPOCH, NEURONS, LAYERS)
 
 # recover trained weights, generate new lstm with single batch input.
-# matching batch size
+# matching batch size adapted from
 # http://machinelearningmastery.com/use-different-batch-sizes-training-predicting-python-keras/
 new_model = Sequential()
 if LAYERS<2:
@@ -255,30 +198,22 @@ else:
                        return_sequences=False,
                        stateful=True))
 new_model.add(Dense((train_scaled.shape[1]-1)*train_scaled.shape[2]))
-new_model.set_weights(lstm_model.get_weights())
+new_model.set_weights(lstm_model.get_weights()) # dump weights into new LSTM
 new_model.compile(loss='mean_squared_error',optimizer='adam')
 
-# forecast (nearly) the entire training dataset to build up state for forecasting
+# forecast the entire training dataset to build up state for forecasting
 train_reshaped = train_scaled[:, 0].reshape(train_scaled.shape[0], 1, train_scaled.shape[2])
 new_model.predict(train_reshaped, batch_size=1)
 
 # walk-forward validation on the remaining test data
 bestresult = np.zeros((test_scaled.shape[0],test_scaled.shape[1]-1,test_scaled.shape[2]))
 predictions = np.zeros(bestresult.shape)
-#predictionsnonML = np.zeros(test_scaled.shape)
-#nrmse=np.zeros(test.shape[0])
-#nrmsenonML=np.zeros(test.shape[0])
 np.set_printoptions(precision=2) 
 for i in range(len(test_scaled)):
     X, y = test_scaled[i, 0:1], test_scaled[i,1:]
     bestresult[i] = y
     yhat = forecast_lstm(new_model, 1, X)
     predictions[i] = yhat
-    # weighting prediction by advanced time squared. This is roughly consistent with 2nd order extrapolation methods, but can easily be tweaked.
-    #nrmse[i] = np.dot(np.array(TIMES)**2,np.array([sqrt(np.abs(np.mean((y[i]-yhat[i])**2/(0.000001+y[i]**2)))) for i in range(len(TIMES))]))
-    #print i, nrmse[i]
-
-#print np.mean(nrmse)
 
 # Invert scaling
 bestresult_unscale = np.insert(invert_scale(scalerlist,bestresult),0,0.,axis=0)
@@ -294,44 +229,9 @@ predictions_int += series_no_nans[:,train_length-1]
 train_scaled_x = np.arange(1,1+train_scaled.shape[0],1)
 test_scaled_x = np.arange(train_scaled.shape[0],1+train_scaled.shape[0]+test_scaled.shape[0],1)
 
-#save stuff to files #update this!
+#save stuff to files. Because I didn't diff above, I'm not undiffing here.
 np.savetxt(DIR+OUTPUT+'_ideal.csv', bestresult_unscale.reshape(bestresult_unscale.shape[0],bestresult_unscale.shape[1]*bestresult_unscale.shape[2]), delimiter=",")
 np.savetxt(DIR+OUTPUT+'_ML.csv', predictions_unscale.reshape(predictions_unscale.shape[0],predictions_unscale.shape[1]*predictions_unscale.shape[2]), delimiter=",")
 
-# this measures total relative error over the entire test period for each of the different prediction times and channels.
-#for i in range(predictions.shape[2]):
-#    print i, ['%.2f' % sqrt(np.abs(np.mean((bestresult[:,j,i]-predictions[:,j,i#])**2/bestresult[:,j,i]**2))) for j in range(predictions.shape[1])]
-
-# plot raw data
-#pyplot.plot(series[out])
-#pyplot.show()
-
-# plot scaled data and predictions
-#pyplot.plot(train_scaled_x,train_scaled[:,0,out])
-#pyplot.plot(test_scaled_x,test_scaled[:,0,out])
-#pyplot.plot(test_scaled_x,predictions[:,out])
-#pyplot.show()
-
-# plot un integrated data
-for out in range(2):
-    pyplot.plot(test_scaled_x,bestresult_unscale[:,0,out])
-    for i in range(predictions_unscale.shape[1]):
-        pyplot.plot(test_scaled_x+predict_times[i],predictions_unscale[:,i,out])
-    pyplot.xlabel('time (minutes)')
-    pyplot.ylabel('B (nT)')
-    pyplot.show()
-    # plot predictions over test region 
-    # There's a drift due to some random vertical offset.
-    pyplot.plot(test_scaled_x,bestresult_int[:,0,out])
-    #pyplot.plot(test_scaled_x,series_no_nans[out,train_length-1:train_length+test_length])
-    for i in range(predictions_unscale.shape[1]):
-        pyplot.plot(test_scaled_x+predict_times[i],predictions_int[:,i,out])
-    pyplot.xlabel('time (minutes)')
-    pyplot.ylabel('B (nT)')
-    pyplot.show()
-
-#pyplot.plot(nrmse)
-#pyplot.show()
-
-# track loss vs records
+print "complete"
 
