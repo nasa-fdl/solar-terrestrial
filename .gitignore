@@ -1,6 +1,9 @@
 *.png
 *.csv
 *.txt
+*.o
+geomagcnv
+kpindexcnv
 LSTMtute*.py
 myconfig.cfg
 *.pyc
