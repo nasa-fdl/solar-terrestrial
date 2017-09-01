@@ -181,7 +181,7 @@ int main()
 
   vector<CStation> arrSt;
 
-  inflst.open("ak_filelist.txt");
+  inflst.open("ak_filelist.out");
   if(inflst)
   {
     cout << "Opened filelist.out\n";
