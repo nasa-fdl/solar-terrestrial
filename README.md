@@ -30,5 +30,5 @@ Project 2: geomag, omni solar wind data and kp index
 
 python kp_regress.py
 
-Note: Check back early September 2017 for more documentatation and code clean up.  Many of us have to make our way back to home.
 
+Note: Check back early September 2017 for more documentatation and code clean up.  
