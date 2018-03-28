@@ -33,4 +33,4 @@ Project 2: geomag, omni solar wind data and kp index
 python kp_regress.py
 
 
-Note: Check back early September 2017 for more documentatation and code clean up.  
+Contact Information: George Gerules ggerules@gmail.com or gwgkt2@mail.umsl.edu.  
