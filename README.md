@@ -2,7 +2,18 @@ Frontier Development Lab 2017
 B-Sting Solar Terrestrial Interactions Neural Network Generation
 ================================================================
 
-Draft documentation.  Check back!  Initial Documentation to be completed by September 10th, 2017
+**Citing:** If you use this framework please cite as follows:
+
+    @inproceedings{2017AGUFMSM23A2591C,
+        author = {{Cheung}, C.~M.~M. and {Handmer}, C. and {Kosar}, B. and {Gerules}, G. and 
+	{Poduval}, B. and {Mackintosh}, G. and {Munoz-Jaramillo}, A. and 
+	{Bobra}, M. and {Hernandez}, T. and {McGranaghan}, R.~M.},
+        booktitle = {AGU Fall Meeting},
+        title = {Modeling Geomagnetic Variations using a Machine Learning Framework},
+        address = {Long Beach},
+        year = {2017}
+    }
+
 
 Hardware Requirements - Preliminary List
 ---------------------
@@ -33,4 +44,7 @@ Project 2: geomag, omni solar wind data and kp index
 python kp_regress.py
 
 
-Contact Information: George Gerules ggerules@gmail.com or gwgkt2@mail.umsl.edu.  
+Contact Information: 
+Mark Cheung cheung@lmsal.com
+George Gerules ggerules@gmail.com or gwgkt2@mail.umsl.edu
+
